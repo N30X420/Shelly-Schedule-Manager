@@ -1,4 +1,4 @@
-/* Shelly Schedule Manager dashboard card v0.3.0. No external libraries or polling. */
+/* Shelly Schedule Manager dashboard card v0.3.1. No external libraries or polling. */
 class ShellyScheduleCard extends HTMLElement {
   constructor() {
     super();
@@ -42,21 +42,28 @@ class ShellyScheduleCard extends HTMLElement {
       if (info.platform !== 'shelly_schedule_manager' || !info.device_id || !this._hass.states[id]) continue;
       const dev = this._hass.devices?.[info.device_id];
       if (!groups.has(info.device_id)) groups.set(info.device_id, {id: info.device_id, name: dev?.name_by_user || dev?.name || 'Shelly', items: []});
-      groups.get(info.device_id).items.push({entity_id:id, state:this._hass.states[id].state, attributes:this._hass.states[id].attributes, unique_id: info.unique_id || '', original_name:info.original_name || ''});
+      groups.get(info.device_id).items.push({entity_id:id, state:this._hass.states[id].state, attributes:this._hass.states[id].attributes, unique_id: info.unique_id || '', original_name:info.original_name || '', friendly_name:this._hass.states[id].attributes?.friendly_name || ''});
     }
     return [...groups.values()].filter(d => d.items.some(i => i.entity_id.startsWith('button.'))).sort((a,b)=>a.name.localeCompare(b.name));
   }
 
   _identify(device) {
+    // Home Assistant frontend entity registry entries don't always expose
+    // unique_id or original_name. Use entity_id and state friendly_name as
+    // fallbacks. Every candidate belongs to this integration's device.
     const rows = new Map();
     let load, save;
     for (const ent of device.items) {
-      const uid = ent.unique_id;
-      if (ent.entity_id.startsWith('button.')) {
-        if (uid.endsWith('_load') || /load from shelly/i.test(ent.original_name)) load = ent;
-        if (uid.endsWith('_save') || /save to shelly/i.test(ent.original_name)) save = ent;
+      const uid = String(ent.unique_id || '').toLowerCase();
+      const entityId = String(ent.entity_id || '').toLowerCase();
+      const name = `${ent.original_name || ''} ${ent.friendly_name || ''}`.toLowerCase();
+      if (entityId.startsWith('button.')) {
+        if (uid.endsWith('_load') || /(?:^|_)load_from_shelly(?:$|_)/.test(entityId) || /load from shelly/.test(name)) load = ent;
+        if (uid.endsWith('_save') || /(?:^|_)save_to_shelly(?:$|_)/.test(entityId) || /save to shelly/.test(name)) save = ent;
       }
-      const match = uid.match(/_job_(\d+)_(time|enabled)$/) || ent.original_name.match(/job\s+(\d+)\s+(time|enabled)/i);
+      const match = uid.match(/_job_(\d+)_(time|enabled)$/)
+        || entityId.match(/_job_(\d+)_(time|enabled)(?:_\d+)?$/)
+        || name.match(/job\s+(\d+)\s+(time|enabled)/);
       if (match) {
         const n = Number(match[1]);
         if (!rows.has(n)) rows.set(n, {id:n});
@@ -157,7 +164,7 @@ class ShellyScheduleCard extends HTMLElement {
       alert.append(this._el('button',{text:'×', 'aria-label':'Dismiss notification',style:'float:right;padding:0 2px;margin-left:6px',onclick:()=>{clearTimeout(this._noticeTimer);this._notice=null;this._render();}}));
       card.append(alert);
     }
-    if (!load || !save) card.append(this._el('div',{className:'alert error',text:'Load/Save entities not found. Check that the Shelly Schedule Manager integration is loaded.'}));
+    if (!load || !save) card.append(this._el('div',{className:'alert error',text:'Load/Save button entities not found for this device. Check Settings → Devices & services → Shelly Schedule Manager → device → Entities; ensure both buttons are enabled.'}));
     card.append(this._el('div',{className:'labels'},this._el('span',{text:'Schedule / Action'}),this._el('span',{text:'Time'}),this._el('span',{text:'Enabled'})));
     for (const row of rows) {
       const action=row.time?.attributes?.action || row.enabled?.attributes?.action || 'Unknown action';
