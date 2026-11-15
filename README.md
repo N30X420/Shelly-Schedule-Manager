@@ -116,6 +116,8 @@ Choose the resource and matching card type for your preferred language. The Dutc
 
 The card lists configured Shelly Schedule Manager devices and lets you select which device to manage. Edit each schedule's local name, time, enabled state, and **Repeat** weekday buttons. Names are saved in Home Assistant immediately and are independent of staged schedule changes.
 
+Schedule rows follow the device-assigned job IDs known from the latest Load or verified Save, including disabled jobs. Retained helper entities for removed jobs are hidden, and an empty device shows no schedule rows. Press **Load from Shelly** to pick up changes made directly on the device; there is no fixed default of eight jobs or periodic discovery. Newly staged jobs appear in the management workspace until Save assigns their device IDs.
+
 HACS updates the bundled card with the integration. Restart Home Assistant after updating and refresh the dashboard. The resource is served without Home Assistant's long-lived static cache headers.
 
 If upgrading from the separate card installation, replace the old `/local/shelly-schedule-card.js` resource with your chosen resource URL above. The old copy in `/config/www` is no longer needed. When switching languages, also update the card type; a custom title remains as you entered it. If the new URL returns 404, check that the bundled file exists, restart Home Assistant, and check the integration setup logs.

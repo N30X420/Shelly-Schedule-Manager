@@ -3,12 +3,26 @@ import ast
 import json
 from pathlib import Path
 import unittest
+from types import SimpleNamespace
 
 ROOT = Path(__file__).resolve().parents[1]
 INTEGRATION = ROOT / "custom_components/shelly_schedule_manager"
 
 
 class DistributionTests(unittest.TestCase):
+    def test_device_schedule_inventory_metadata(self):
+        source = ast.parse((INTEGRATION / "button.py").read_text(encoding="utf-8"))
+        button = next(node for node in source.body if isinstance(node, ast.ClassDef) and node.name == "ScheduleButton")
+        getter = next(node for node in button.body if isinstance(node, ast.FunctionDef) and node.name == "extra_state_attributes")
+        getter.decorator_list = []
+        namespace = {}
+        exec(compile(ast.Module(body=[getter], type_ignores=[]), "button.py", "exec"), namespace)
+        manager = SimpleNamespace(jobs={9: None, -1: None, 2: None, 0: None})
+        entity = SimpleNamespace(manager=manager)
+        self.assertEqual({"schedule_job_ids": [0, 2, 9], "schedule_count": 3}, namespace["extra_state_attributes"](entity))
+        manager.jobs.clear()
+        self.assertEqual({"schedule_job_ids": [], "schedule_count": 0}, namespace["extra_state_attributes"](entity))
+
     def test_manifest_and_hacs_metadata(self):
         manifest = json.loads((INTEGRATION / "manifest.json").read_text())
         hacs = json.loads((ROOT / "hacs.json").read_text())

@@ -10,7 +10,7 @@ export class ShellyScheduleCard extends HTMLElement {
       completed: '{operation} completed.',
       failed: '{operation} failed: {error}. Check the device connection and Home Assistant notifications.',
       noDevices: 'No Shelly Schedule Manager devices found. Add a device through Settings → Devices & services, then refresh the dashboard.',
-      title: 'Shelly schedules', hint: 'Edit locally, then Save to Shelly', chooseDevice: 'Choose Shelly device',
+      title: 'Shelly schedules', chooseDevice: 'Choose Shelly device',
       working: 'Working…', loadButton: '↧ Load from Shelly', reviewButton: '↥ Review & Save',
       loadConfirm: 'Load will discard unsaved changes for this device. Continue?',
       load: 'Load', backup: 'Backup', restore: 'Stage restore', save: 'Save',
@@ -33,7 +33,6 @@ export class ShellyScheduleCard extends HTMLElement {
       dayLabel: '{day} job {id}', toggleDay: 'Toggle {day}', requiredDay: 'At least one weekday is required.', daysUpdate: 'Update job {id} weekdays locally',
       noSchedules: 'No schedules found on this device. Press Load from Shelly.',
       pending: '{count} schedule(s) have unsaved changes. Press Save to write them to the Shelly.',
-      footer: 'Names and backups are stored in Home Assistant. Saves verify the device and detect external changes. No periodic polling.',
     };
   }
 
@@ -91,7 +90,7 @@ export class ShellyScheduleCard extends HTMLElement {
   set hass(hass) {
     this._hass = hass;
     const devices = this._getDevices();
-    const summary = JSON.stringify(devices.map(d => [d.id, d.name, d.items.map(i => [i.entity_id, i.state, i.attributes?.unsaved_changes, i.attributes?.action, i.attributes?.saved_timespec, i.attributes?.saved_enabled]) ]));
+    const summary = JSON.stringify(devices.map(d => [d.id, d.name, d.items.map(i => [i.entity_id, i.state, i.attributes?.unsaved_changes, i.attributes?.action, i.attributes?.saved_timespec, i.attributes?.saved_enabled, i.attributes?.schedule_job_ids]) ]));
     if (!this._busy && summary !== this._lastSignature) {
       // Preserve an in-progress time edit when unrelated HA state updates arrive.
       if (this.shadowRoot.activeElement?.tagName === 'INPUT') return;
@@ -100,7 +99,11 @@ export class ShellyScheduleCard extends HTMLElement {
     }
   }
 
-  getCardSize() { return 8; }
+  getCardSize() {
+    const devices=this._getDevices();
+    const device=devices.find(d=>d.id===this._selected) || devices[0];
+    return 4 + (device?this._identify(device).rows.length*2:0);
+  }
   getGridOptions() { return {columns: 12, min_rows: 5}; }
 
   _getDevices() {
@@ -141,7 +144,11 @@ export class ShellyScheduleCard extends HTMLElement {
         rows.get(n)[match[2].toLowerCase()] = ent;
       }
     }
-    return {load, save, backup, restore, rows:[...rows.values()].sort((a,b)=>a.id-b.id)};
+    const listedIds=[load,save,backup,restore].map(button=>button?.attributes?.schedule_job_ids).find(Array.isArray);
+    const configuredIds=listedIds?new Set(listedIds.filter(id=>Number.isInteger(id) && id>=0)):null;
+    const currentRows=[...rows.values()].filter(row=>configuredIds!==null?configuredIds.has(row.id):
+      [row.time,row.enabled,row.name,row.days].some(entity=>entity && !['unknown','unavailable'].includes(entity.state)));
+    return {load, save, backup, restore, rows:currentRows.sort((a,b)=>a.id-b.id)};
   }
 
   _el(tag, props = {}, ...children) {
@@ -189,7 +196,7 @@ export class ShellyScheduleCard extends HTMLElement {
       :host{display:block;color:var(--primary-text-color);font-family:var(--paper-font-body1_-_font-family,Arial,sans-serif)}
       ha-card{display:block;padding:18px 18px 16px;background:var(--ha-card-background,var(--card-background-color));border-radius:var(--ha-card-border-radius,12px);box-shadow:var(--ha-card-box-shadow,none)}
       .header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap}
-      .heading{font-size:19px;font-weight:650}.hint{font-size:12px;color:var(--secondary-text-color);margin-top:4px}
+      .heading{font-size:19px;font-weight:650}
       select,input[type=time],input[type=text]{background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color,#8886);border-radius:8px;padding:9px;min-width:0;font:inherit}
       select{max-width:100%;min-width:150px}.actions{display:flex;gap:9px;flex-wrap:wrap;margin:14px 0}
       button{border:0;border-radius:9px;padding:11px 15px;font:inherit;cursor:pointer;font-weight:600;background:var(--secondary-background-color,#eee);color:var(--primary-text-color)}
@@ -226,7 +233,7 @@ export class ShellyScheduleCard extends HTMLElement {
     if (!devices.some(d=>d.id===this._selected)) this._selected=devices[0].id;
     const chosen = devices.find(d=>d.id===this._selected);
     const header = this._el('div',{className:'header'});
-    header.append(this._el('div',{},this._el('div',{className:'heading',text:this._config.title || this._t('title')}),this._el('div',{className:'hint',text:this._t('hint')})));
+    header.append(this._el('div',{},this._el('div',{className:'heading',text:this._config.title || this._t('title')})));
     const selector = this._el('select',{ 'aria-label':this._t('chooseDevice'), disabled:this._busy, onchange:(ev)=>{this._selected=ev.target.value;this._notice=null;this._review=false;this._render();}});
     devices.forEach(d => selector.append(this._el('option',{value:d.id,text:d.name})));
     selector.value=this._selected;
@@ -335,7 +342,7 @@ export class ShellyScheduleCard extends HTMLElement {
       card.append(rowElement);
     }
     if (!rows.length) card.append(this._el('p',{text:this._t('noSchedules')}));
-    card.append(this._el('div',{className:'foot',text: pending?this._t('pending', {count:pending}):this._t('footer')}));
+    if(pending) card.append(this._el('div',{className:'foot',text:this._t('pending', {count:pending})}));
     renderManagerPanel(this,card,chosen);
   }
 }

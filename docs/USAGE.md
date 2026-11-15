@@ -7,7 +7,7 @@ Set `management: false` in the card YAML to hide the advanced workspace and its 
 ## Create, duplicate, edit and delete
 
 1. Load schedules if the local editor is stale. Load discards pending local changes.
-2. **Create job** opens the local editor: enter a name, device-local time, numeric weekdays (`0` Sunday through `6` Saturday), switch component ID, ON/OFF action and enabled state. For weekdays, use values such as `1,2,3,4,5`; at least one is required.
+2. **Create job** opens the local editor: enter a name, device-local time, numeric weekdays (`0` Sunday through `6` Saturday), switch component ID, ON/OFF action and enabled state. New jobs default to every day (`0,1,2,3,4,5,6`); at least one weekday is required.
 3. **Stage locally** adds the job with a negative temporary identifier. It sends no write to Shelly. The target component and capacity are verified during preview.
 4. **Duplicate** copies the selected job's time, enabled state and calls into a new local job. Supply its name when prompted. Duplicating arbitrary non-switch actions is rejected during preview because their target parameters cannot be safely validated.
 5. **Edit** changes time, weekdays, enabled state or local name. Leave an advanced time blank and its weekday expression unchanged to preserve it.

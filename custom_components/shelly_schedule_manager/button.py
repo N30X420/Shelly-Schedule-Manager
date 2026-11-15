@@ -25,6 +25,13 @@ class ScheduleButton(ScheduleEntity, ButtonEntity):
         self._attr_name = names[operation]
         self._attr_icon = icons[operation]
 
+    @property
+    def extra_state_attributes(self):
+        # Positive IDs represent device-assigned jobs. Temporary staged creates
+        # belong only in the management workspace until Shelly assigns an ID.
+        job_ids = sorted(job_id for job_id in self.manager.jobs if job_id >= 0)
+        return {"schedule_job_ids": job_ids, "schedule_count": len(job_ids)}
+
     def _notify(self, message: str, *, failed: bool) -> None:
         """Upsert a per-device notification instead of growing an endless list."""
         persistent_notification.async_create(

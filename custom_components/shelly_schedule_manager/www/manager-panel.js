@@ -87,11 +87,11 @@ export function renderManagerPanel(card,container,chosen) {
   const show=object=>el('pre',{text:JSON.stringify(object,null,2)});
   const edit=id=>{const job=device.jobs.find(j=>j.id===id);card._managerEditor={id,name:job.name,time:/^\d+ \d+ \d+ /.test(job.timespec)?job.timespec.split(' ').slice(0,3).reverse().map(v=>v.padStart(2,'0')).join(':'):'',weekdays:job.timespec.split(' ')[5] || '',enabled:job.enable};card._render();};
   box.append(el('h3',{text:device.title}));
-  box.append(el('p',{className:'status',text:`${device.jobs.filter(j=>!j.deleted).length}/${device.capabilities.capacity} ${tr('schedule slots (Shelly documented limit)','schemaplaatsen (gedocumenteerde Shelly-limiet)')}`}));
+  box.append(el('p',{className:'status',text:`${device.jobs.filter(j=>!j.deleted).length}/${device.capabilities.capacity} ${tr('schedule slots','schemaplaatsen')}`}));
   if(device.recovery_required) box.append(el('p',{className:'alert error',text:tr('Uncertain previous write. Load from Shelly before continuing.','Onzekere vorige schrijfactie. Laad van Shelly voordat je doorgaat.')}));
   const actions=el('div',{className:'actions'});
   actions.append(button(tr('Load','Laden'),()=>{if(!device.pending.length || confirm(tr('Discard all local edits?','Alle lokale wijzigingen verwerpen?'))) run('load');}),
-    button(tr('Create job','Schema maken'),()=>{card._managerEditor={name:'',time:'08:00:00',weekdays:'1,2,3,4,5',switch_id:device.capabilities.switches[0] ?? 0,on:true,enabled:true};card._render();}),
+    button(tr('Create job','Schema maken'),()=>{card._managerEditor={name:'',time:'08:00:00',weekdays:'0,1,2,3,4,5,6',switch_id:device.capabilities.switches[0] ?? 0,on:true,enabled:true};card._render();}),
     button(tr('Preview & Save all changes','Alle wijzigingen controleren en opslaan'),()=>run('preview')),
     button(tr('Back up device','Back-up maken'),()=>{const description=prompt(tr('Optional snapshot description (max 80 characters)','Optionele beschrijving (maximaal 80 tekens)'),'');if(description!==null)run('backup',{description});}),
     button(tr('Stage latest backup','Laatste back-up klaarzetten'),()=>{if(confirm(tr('Replace unsaved local edits with the latest backup? Nothing is written until Save.','Niet-opgeslagen wijzigingen vervangen door de laatste back-up? Er wordt pas geschreven bij opslaan.')))run('restore',{confirmed:true});}));

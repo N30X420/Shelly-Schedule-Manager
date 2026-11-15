@@ -11,7 +11,7 @@ class ShellyScheduleCardNL extends ShellyScheduleCard {
       completed: '{operation} voltooid.',
       failed: '{operation} mislukt: {error}. Controleer de verbinding met het apparaat en de Home Assistant-meldingen.',
       noDevices: 'Geen Shelly Schedule Manager-apparaten gevonden. Voeg een apparaat toe via Instellingen → Apparaten & diensten en vernieuw het dashboard.',
-      title: 'Shelly-schema’s', hint: 'Bewerk lokaal en sla daarna op naar Shelly', chooseDevice: 'Kies een Shelly-apparaat',
+      title: 'Shelly-schema’s', chooseDevice: 'Kies een Shelly-apparaat',
       working: 'Bezig…', loadButton: '↧ Laden van Shelly', reviewButton: '↥ Controleren en opslaan',
       loadConfirm: 'Laden verwijdert niet-opgeslagen wijzigingen voor dit apparaat. Doorgaan?',
       load: 'Laden', backup: 'Back-up maken', restore: 'Herstel voorbereiden', save: 'Opslaan',
@@ -34,7 +34,6 @@ class ShellyScheduleCardNL extends ShellyScheduleCard {
       dayLabel: '{day} schema {id}', toggleDay: '{day} wijzigen', requiredDay: 'Selecteer ten minste één weekdag.', daysUpdate: 'Weekdagen van schema {id} lokaal wijzigen',
       noSchedules: 'Geen schema’s gevonden op dit apparaat. Druk op Laden van Shelly.',
       pending: '{count} schema(’s) met niet-opgeslagen wijzigingen. Druk op Controleren en opslaan om ze naar Shelly te schrijven.',
-      footer: 'Namen en back-ups worden opgeslagen in Home Assistant. Bij opslaan worden het apparaat en externe wijzigingen gecontroleerd. Geen periodieke polling.',
     };
   }
 }

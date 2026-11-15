@@ -36,6 +36,33 @@ export async function runFrontendTests({timelineEvents,classes}) {
   same(Object.keys(new English()._strings).sort(),Object.keys(new Dutch()._strings).sort(),'Language key parity');
   for(const Card of classes) {
     const dutch=Card===Dutch,card=new Card();
+    const inventoryCard=new Card();
+    inventoryCard.setConfig({type:`custom:${Card.cardType}`,management:false});
+    const loadButton={entity_id:'button.load',unique_id:'entry_load',state:'unknown',attributes:{schedule_job_ids:[2,9,12]}};
+    const inventoryItems=[loadButton,{entity_id:'button.save',unique_id:'entry_save',state:'unknown'}];
+    for(const id of [1,2,3,4,5,6,7,8,9,12]) {
+      const configured=[2,9,12].includes(id);
+      inventoryItems.push({entity_id:`time.job_${id}_time`,unique_id:`entry_job_${id}_time`,
+        state:configured && id!==9?'08:00:00':'unavailable',attributes:{}});
+      inventoryItems.push({entity_id:`switch.job_${id}_enabled`,unique_id:`entry_job_${id}_enabled`,
+        state:configured?(id===9?'on':'off'):'unavailable',attributes:{}});
+    }
+    const retainedName={entity_id:'text.job_7_name',unique_id:'entry_job_7_name',state:'Old job name',attributes:{}};
+    inventoryItems.push(retainedName);
+    const inventoryDevice={id:'inventory',name:'Inventory',items:inventoryItems};
+    inventoryCard._getDevices=()=>[inventoryDevice];
+    inventoryCard.hass={};
+    same(inventoryCard._identify(inventoryDevice).rows.map(r=>r.id),[2,9,12],'Only configured IDs appear, including jobs beyond eight');
+    same(flatten(inventoryCard.shadowRoot).filter(e=>e.className==='row').length,3,'No stale or placeholder schedule rows');
+    same(inventoryCard.getCardSize(),10,'Layout estimate follows the configured row count');
+    loadButton.attributes.schedule_job_ids=[];
+    inventoryCard.hass={};
+    same(flatten(inventoryCard.shadowRoot).filter(e=>e.className==='row').length,0,'An empty inventory updates the card without helper-state changes');
+    same(inventoryCard.getCardSize(),4,'Empty inventory does not reserve eight jobs of height');
+    delete loadButton.attributes.schedule_job_ids;
+    retainedName.state='unavailable';
+    same(inventoryCard._identify(inventoryDevice).rows.map(r=>r.id),[2,9,12],'Older-backend fallback hides missing jobs but keeps disabled and advanced jobs');
+    passed.push(`${dutch?'Dutch':'English'} configured schedule inventory, empty devices, stale helpers and dynamic layout`);
     const notices=[];card._toast=(message,kind)=>notices.push({message,kind});
     card.setConfig({type:`custom:${Card.cardType}`});
     const calls=[];
@@ -54,6 +81,14 @@ export async function runFrontendTests({timelineEvents,classes}) {
     timelineSection().open=false;timelineSection().events.toggle();card._render();
     assert(!timelineSection().open,'Collapsed timeline persists across renders');
     assert(text(card.shadowRoot).includes(dutch?'Meerdere apparaten beheren':'Bulk Management'),'Bulk controls rendered');
+    assert(!text(card.shadowRoot).includes(dutch?'Bewerk lokaal':'Edit locally'),'Header editing hint is removed');
+    assert(!text(card.shadowRoot).includes(dutch?'Namen en back-ups':'Names and backups'),'Storage footer is removed');
+    assert(!text(card.shadowRoot).includes(dutch?'gedocumenteerde Shelly-limiet':'Shelly documented limit'),'Capacity note is removed');
+    const createButton=flatten(card.shadowRoot).find(e=>e.tagName==='BUTTON'&&e.textContent===(dutch?'Schema maken':'Create job'));
+    createButton.click();
+    same(card._managerEditor.weekdays,'0,1,2,3,4,5,6','New schedules default to every day');
+    same(calls.length,0,'Opening a new daily schedule makes no backend calls');
+    card._managerEditor=null;card._render();
     const editor=flatten(card.shadowRoot).find(e=>e.tagName==='BUTTON'&&e.textContent===(dutch?'Bewerken':'Edit'));
     editor.click();
     assert(flatten(card.shadowRoot).some(e=>e.attrs.role==='form'),'Event/job editor renders');
