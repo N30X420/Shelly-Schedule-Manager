@@ -5,10 +5,13 @@ A custom Home Assistant integration for viewing and editing schedules on Shelly 
 ## Features
 
 - Add multiple Shelly devices through Home Assistant's integration setup.
-- Load schedules manually and edit each schedule's time and enabled state.
+- Load schedules manually and edit each schedule's time, weekdays, and enabled state.
 - Give schedules custom names that are stored locally in Home Assistant.
 - Review the schedule action and see which schedules have unsaved changes.
-- Save only changed schedules to the device.
+- Review pending changes in the card before confirming a save.
+- Save only changed schedules, with checks for external changes before writing and automatic read-back verification afterward.
+- Back up device schedules locally and stage a restore for review before saving.
+- See operation results in card messages and per-device persistent Home Assistant notifications.
 - Optionally use the included Lovelace card to manage schedules from a dashboard.
 - Read schedules once when the integration starts; no periodic polling of the Shelly device.
 
@@ -16,11 +19,14 @@ A custom Home Assistant integration for viewing and editing schedules on Shelly 
 
 - A Shelly Gen2 or Gen3 device with the RPC Schedule API enabled and reachable from Home Assistant's network.
 - The device's local RPC username and password.
-- The integration supports schedules with a fixed time in six-field cron format (`second minute hour day month weekday`). The time entity edits only the time; other schedule fields and actions are preserved.
+- The integration supports schedules with a fixed time in six-field cron format (`second minute hour day month weekday`). The time entity edits only the time; the weekday entity edits only the weekday field. Day-of-month, month, and schedule actions are preserved.
+- Weekday editing supports `*`, individual numeric days, weekday names, and comma-separated lists. Advanced weekday expressions such as ranges or steps are preserved but must be edited on the Shelly. At least one weekday must remain selected.
+- Create or delete schedules on the Shelly; this integration edits existing schedules only.
 - Schedule actions are displayed but cannot be edited in Home Assistant.
 - Custom schedule names are Home Assistant metadata, not Shelly schedule fields. They are saved locally, survive Home Assistant restarts, and are not sent to the device. Names may be up to 80 characters.
 - Changing an entity only stages the change locally. It does not update the Shelly until you press **Save to Shelly**.
 - **Load from Shelly** replaces the local schedule data and discards any unsaved changes.
+- Saving checks the edited schedules against the last successful Load or verified Save. If an edited schedule was removed or its time, weekdays, enabled state, or action changed on the device, nothing is written. Load again, review the device values, and reapply your edits.
 - If saving fails partway through, earlier schedules may already have been written. Load the schedules again to inspect the device before retrying.
 
 ## Install the integration
@@ -36,7 +42,18 @@ A custom Home Assistant integration for viewing and editing schedules on Shelly 
 4. Enter a device name, its IP address or hostname, and its local RPC username and password. Repeat the setup to add additional devices.
 5. The integration reads schedules when it starts. Press **Load from Shelly** on the device page whenever you want to reload them manually.
 
-For each device, the integration creates **Load from Shelly** and **Save to Shelly** buttons. For each schedule it creates a time entity, an enabled switch, and a text entity for its custom name. These entities can be used directly in Home Assistant even if you do not install the optional card. Load and Save results are also reported through Home Assistant notifications.
+For each device, the integration creates these buttons:
+
+| Button | Behavior |
+| --- | --- |
+| **Load from Shelly** | Read current device schedules, replacing local schedule edits. |
+| **Save to Shelly** | Check for conflicts, write changed schedules, and verify the result. |
+| **Back up Shelly schedules** | Read device schedules and replace the stored backup for this device. |
+| **Stage backup restore** | Copy backed-up schedule settings into the local editor for review and saving. |
+
+For each schedule it creates a time entity, an enabled switch, a text entity for its custom name, and a **Job … days** text entity for weekdays. Set weekdays as comma-separated numbers (`0` = Sunday through `6` = Saturday); for example, `1,2,3,4,5` selects Monday through Friday. Advanced weekday rules appear as `advanced` and cannot be changed through this entity.
+
+These entities can be used directly in Home Assistant even if you do not install the optional card. Pressing **Save to Shelly** directly applies staged changes without the card's review screen. Operation results, including authentication, connection, conflict, and verification errors, appear in a persistent Home Assistant notification for the device.
 
 ## Optional Lovelace card
 
@@ -63,7 +80,29 @@ The repository's `shelly-schedule-card.js` is a separate dashboard resource; ins
    title: Shelly schedules
    ```
 
-The card lists configured Shelly Schedule Manager devices. It provides controls to load and save schedules, edit their local name, time, and enabled state, and see pending schedule changes. Names are saved in Home Assistant immediately and are independent of schedule changes. Loading while schedule changes are pending asks for confirmation.
+The card lists configured Shelly Schedule Manager devices and lets you select which device to manage. Edit each schedule's local name, time, enabled state, and **Repeat** weekday buttons. Names are saved in Home Assistant immediately and are independent of staged schedule changes.
+
+Press **Review & Save** to see pending changes to times, weekdays, and enabled states, then **Confirm Save to Shelly** to apply them to the selected device. Cancel closes the review and keeps your staged edits. Loading while schedule changes are pending asks for confirmation. Card messages show operation success or failure.
+
+## Save verification
+
+When there are pending changes, Save first reads `Schedule.List` and checks the edited jobs against their last loaded or successfully saved values. If any edited job conflicts, the save stops before writing anything. Otherwise, it sends `Schedule.Update` only for changed jobs, preserving their existing RPC actions, then reads `Schedule.List` again.
+
+A job is marked saved only when its returned `timespec`, `enable`, and unchanged `calls` match the intended state. If some jobs fail verification, successfully verified jobs are marked saved and the others remain unsaved. If updates are interrupted or the verification read fails, changes remain marked unsaved even though the device may have applied them. Load from Shelly to inspect the actual device state before retrying; this discards local edits.
+
+## Backup and restore
+
+1. Press **Back up device** in the card, or **Back up Shelly schedules** on the device page, to snapshot the schedules currently on the Shelly. Unsaved local edits are not included.
+2. To restore, load schedules first if needed, then press **Stage restore** in the card or **Stage backup restore** on the device page. This replaces local schedule edits with the backed-up timespecs (including weekdays) and enabled states. The card asks for confirmation before replacing edits.
+3. Review the staged changes and press **Review & Save**, then **Confirm Save to Shelly**. Without the card, inspect the entities and press **Save to Shelly**.
+
+One backup is stored per device config entry in Home Assistant's `.storage` under `shelly_schedule_manager_backup_<entry_id>` and survives restarts. Each new backup replaces the previous snapshot; Load and Save do not replace it. The snapshot contains schedule IDs, timespecs, enabled states, and RPC actions. Custom names are stored separately and are not restored from this snapshot.
+
+Staging a restore requires the loaded schedule IDs and RPC actions to match the backup. If either differs, nothing is restored. Restore staging does not contact the Shelly or recreate deleted schedules; saving the staged settings performs the usual conflict checks and verification.
+
+## Network activity
+
+Setup checks connectivity with `Schedule.List`. The integration then reads schedules once on initialization, with no timer-based polling. Each explicit Load or Backup performs a read. A Save with pending changes performs a preflight read, updates changed jobs, and reads back for verification; a Save with no changes makes no device calls. Editing names, times, weekdays, or enabled states and staging a restore do not contact the Shelly.
 
 ## Security
 
