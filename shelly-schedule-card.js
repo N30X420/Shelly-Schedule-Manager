@@ -1,4 +1,4 @@
-/* Shelly Schedule Manager dashboard card v0.5.0. No external libraries or polling. */
+/* Shelly Schedule Manager dashboard card v0.6.0. No external libraries or polling. */
 class ShellyScheduleCard extends HTMLElement {
   constructor() {
     super();
@@ -53,7 +53,7 @@ class ShellyScheduleCard extends HTMLElement {
     // unique_id or original_name. Use entity_id and state friendly_name as
     // fallbacks. Every candidate belongs to this integration's device.
     const rows = new Map();
-    let load, save;
+    let load, save, backup, restore;
     for (const ent of device.items) {
       const uid = String(ent.unique_id || '').toLowerCase();
       const entityId = String(ent.entity_id || '').toLowerCase();
@@ -61,6 +61,8 @@ class ShellyScheduleCard extends HTMLElement {
       if (entityId.startsWith('button.')) {
         if (uid.endsWith('_load') || /(?:^|_)load_from_shelly(?:$|_)/.test(entityId) || /load from shelly/.test(name)) load = ent;
         if (uid.endsWith('_save') || /(?:^|_)save_to_shelly(?:$|_)/.test(entityId) || /save to shelly/.test(name)) save = ent;
+        if (uid.endsWith('_backup') || /(?:^|_)back_up_shelly_schedules(?:$|_)/.test(entityId) || /back up shelly schedules/.test(name)) backup = ent;
+        if (uid.endsWith('_restore') || /(?:^|_)stage_backup_restore(?:$|_)/.test(entityId) || /stage backup restore/.test(name)) restore = ent;
       }
       const match = uid.match(/_job_(\d+)_(time|enabled|name|days)$/)
         || entityId.match(/_job_(\d+)_(time|enabled|name|days)(?:_\d+)?$/)
@@ -71,7 +73,7 @@ class ShellyScheduleCard extends HTMLElement {
         rows.get(n)[match[2].toLowerCase()] = ent;
       }
     }
-    return {load, save, rows:[...rows.values()].sort((a,b)=>a.id-b.id)};
+    return {load, save, backup, restore, rows:[...rows.values()].sort((a,b)=>a.id-b.id)};
   }
 
   _el(tag, props = {}, ...children) {
@@ -161,7 +163,7 @@ class ShellyScheduleCard extends HTMLElement {
     devices.forEach(d => selector.append(this._el('option',{value:d.id,text:d.name})));
     selector.value=this._selected;
     header.append(selector);card.append(header);
-    const {load,save,rows}=this._identify(chosen);
+    const {load,save,backup,restore,rows}=this._identify(chosen);
     const modified = rows.filter(r=>r.time?.attributes?.unsaved_changes || r.enabled?.attributes?.unsaved_changes || r.days?.attributes?.unsaved_changes);
     const pending = modified.length;
     const actions=this._el('div',{className:'actions'});
@@ -170,6 +172,14 @@ class ShellyScheduleCard extends HTMLElement {
       this._review=false;this._call('button','press',{entity_id:load.entity_id},'Load');
     }}));
     actions.append(this._el('button',{className:'primary',text:this._busy?'Working…':`↥ Review & Save${pending?` (${pending})`:''}`,disabled:this._busy || !save || save.state==='unavailable' || !pending,onclick:()=>{this._review=true;this._render();}}));
+    actions.append(this._el('button',{text:'▣ Back up device',disabled:this._busy || !backup || backup.state==='unavailable',onclick:()=>{
+      if(!confirm('Replace the stored backup for this device with its current Shelly schedules? This reads from Shelly.')) return;
+      this._call('button','press',{entity_id:backup.entity_id},'Backup');
+    }}));
+    actions.append(this._el('button',{text:'↶ Stage restore',disabled:this._busy || !restore || restore.state==='unavailable',onclick:()=>{
+      if(!confirm('Stage the stored backup into the schedule editor? Any currently unsaved edits will be replaced. Nothing is written to Shelly until Review & Save.')) return;
+      this._review=false;this._call('button','press',{entity_id:restore.entity_id},'Stage restore');
+    }}));
     card.append(actions);
     if (this._review && pending) {
       const pane = this._el('div',{className:'review',role:'region','aria-label':'Review schedule changes'});
@@ -257,7 +267,7 @@ class ShellyScheduleCard extends HTMLElement {
       card.append(rowElement);
     }
     if (!rows.length) card.append(this._el('p',{text:'No schedules found on this device. Press Load from Shelly.'}));
-    card.append(this._el('div',{className:'foot',text: pending?`${pending} schedule(s) have unsaved changes. Press Save to write them to the Shelly.`:'Names are stored in Home Assistant. Schedule changes remain local until Save. No periodic Shelly requests.'}));
+    card.append(this._el('div',{className:'foot',text: pending?`${pending} schedule(s) have unsaved changes. Press Save to write them to the Shelly.`:'Names and backups are stored in Home Assistant. Saves verify the device and detect external changes. No periodic polling.'}));
   }
 }
 if (!customElements.get('shelly-schedule-card')) customElements.define('shelly-schedule-card',ShellyScheduleCard);

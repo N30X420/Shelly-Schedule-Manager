@@ -3,7 +3,8 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-from datetime import time
+from datetime import time, datetime, timezone
+from copy import deepcopy
 from collections.abc import Callable
 from typing import Any
 
@@ -128,6 +129,8 @@ class ScheduleManager:
         self.revision: int | None = None
         self.job_names: dict[int, str] = {}
         self.name_store = None
+        self.backup_store = None
+        self.backup: dict[str, Any] | None = None
         self._listeners: list[Callable[[], None]] = []
         self._lock = asyncio.Lock()
 
@@ -168,26 +171,131 @@ class ScheduleManager:
             self.loaded = True
             self.notify()
 
+    @staticmethod
+    def _remote_jobs(result: dict[str, Any]) -> dict[int, dict[str, Any]]:
+        jobs = result["jobs"]
+        by_id = {int(raw["id"]): raw for raw in jobs}
+        if len(by_id) != len(jobs):
+            raise ShellyAPIError("Duplicate schedule IDs")
+        return by_id
+
+    @staticmethod
+    def _equivalent(raw: dict[str, Any], timespec: str, enabled: bool,
+                    calls: list[dict[str, Any]]) -> bool:
+        return (raw.get("timespec") == timespec and
+                raw.get("enable") is enabled and raw.get("calls", []) == calls)
+
+    async def make_backup(self) -> int:
+        """Store one explicit snapshot, never silently overwrite on Load or Save."""
+        async with self._lock:
+            try:
+                result = await self.hass.async_add_executor_job(self.client.list_jobs)
+                raw = self._remote_jobs(result)
+                for job in raw.values():
+                    parse_job(job)
+            except (ShellyAPIError, ValueError, KeyError, TypeError) as exc:
+                raise HomeAssistantError(f"Could not back up Shelly: {exc}") from exc
+            backup = {
+                "created": datetime.now(timezone.utc).isoformat(),
+                "jobs": deepcopy(list(raw.values())),
+                "rev": result.get("rev"),
+            }
+            if self.backup_store is None:
+                raise HomeAssistantError("Backup storage is not configured")
+            await self.backup_store.async_save(backup)
+            self.backup = backup
+            self.notify()
+            return len(raw)
+
+    async def stage_restore(self) -> int:
+        """Restore times and enable flags into helpers only; Save still required."""
+        if not self.loaded:
+            raise HomeAssistantError("Load schedules first")
+        async with self._lock:
+            if not self.backup or not self.backup.get("jobs"):
+                raise HomeAssistantError("No backup exists for this Shelly")
+            snapshot = self._remote_jobs({"jobs": self.backup["jobs"]})
+            if set(snapshot) != set(self.jobs):
+                raise HomeAssistantError("Schedule IDs differ from backup. Nothing restored")
+            for job_id, raw in snapshot.items():
+                current = self.jobs[job_id]
+                if raw.get("calls", []) != current.calls:
+                    raise HomeAssistantError(
+                        f"Job {job_id} action differs from backup. Nothing restored")
+                parse_job(raw)
+            count = 0
+            for job_id, raw in snapshot.items():
+                job = self.jobs[job_id]
+                if job.timespec != raw["timespec"] or job.enabled != raw["enable"]:
+                    count += 1
+                job.timespec = raw["timespec"]
+                job.enabled = raw["enable"]
+                job._refresh_dirty()
+            self.notify()
+            return count
+
     async def save(self) -> int:
         if not self.loaded:
             raise HomeAssistantError("Press Load from Shelly first")
         async with self._lock:
             dirty = [job for job in self.jobs.values() if job.dirty]
-            # Saving only modified schedules avoids unnecessary writes.
-            for job in dirty:
-                params = {"id": job.id, "timespec": job.timespec, "enable": job.enabled}
-                try:
-                    result = await self.hass.async_add_executor_job(
-                        self.client.call, "Schedule.Update", params
+            if not dirty:
+                return 0
+            # Conflict detection: do not overwrite a job changed outside HA.
+            try:
+                before = await self.hass.async_add_executor_job(self.client.list_jobs)
+                remote = self._remote_jobs(before)
+            except (ShellyAPIError, ValueError, KeyError, TypeError) as exc:
+                raise HomeAssistantError(f"Cannot check device state before save: {exc}") from exc
+            conflicts = [job.id for job in dirty if (
+                job.id not in remote or not self._equivalent(
+                    remote[job.id], job.original_timespec,
+                    job.original_enabled, job.calls))]
+            if conflicts:
+                raise HomeAssistantError(
+                    f"External change detected in job(s) {conflicts}. "
+                    "Nothing saved. Load from Shelly, review changes, and retry."
+                )
+            # Multiple RPC updates are NOT atomic. On failure, do not mark jobs clean:
+            # the device may have applied an update before the connection failed.
+            sent = []
+            try:
+                for job in dirty:
+                    await self.hass.async_add_executor_job(
+                        self.client.call, "Schedule.Update",
+                        {"id": job.id, "timespec": job.timespec, "enable": job.enabled}
                     )
-                except ShellyAPIError as exc:
-                    self.notify()
-                    raise HomeAssistantError(
-                        f"Save stopped at job {job.id}; previous jobs may have been updated: {exc}"
-                    ) from exc
-                job.original_timespec = job.timespec
-                job.original_enabled = job.enabled
-                job.dirty = False
-                self.revision = result.get("rev", self.revision)
+                    sent.append(job.id)
+            except ShellyAPIError as exc:
                 self.notify()
+                raise HomeAssistantError(
+                    f"Save interrupted at job {job.id} after sending {sent}: {exc}. "
+                    "Some changes may have been applied; load to inspect before retrying."
+                ) from exc
+            # Verify final state before clearing *any* dirty flags.
+            try:
+                after = await self.hass.async_add_executor_job(self.client.list_jobs)
+                verified = self._remote_jobs(after)
+            except (ShellyAPIError, ValueError, KeyError, TypeError) as exc:
+                raise HomeAssistantError(
+                    f"Updates sent but read-back verification failed: {exc}. "
+                    "Changes remain marked unsaved; load to inspect."
+                ) from exc
+            mismatched = [job.id for job in dirty if (
+                job.id not in verified or not self._equivalent(
+                    verified[job.id], job.timespec, job.enabled, job.calls))]
+            # Jobs successfully verified become the new baseline, even if other
+            # jobs failed verification. This supports safe selective retry.
+            for job in dirty:
+                if job.id not in mismatched:
+                    job.original_timespec = job.timespec
+                    job.original_enabled = job.enabled
+                    job.dirty = False
+            self.revision = after.get("rev", self.revision)
+            self.notify()
+            if mismatched:
+                raise HomeAssistantError(
+                    f"Save verification failed for job(s) {mismatched}; "
+                    "other verified jobs were saved. Load to inspect the device."
+                )
             return len(dirty)

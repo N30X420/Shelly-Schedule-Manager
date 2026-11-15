@@ -20,6 +20,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             int(key): value for key, value in stored.items()
             if str(key).isdecimal() and isinstance(value, str) and value.strip()
         }
+    manager.backup_store = Store(hass, 1, f"{DOMAIN}_backup_{entry.entry_id}")
+    saved_backup = await manager.backup_store.async_load()
+    if isinstance(saved_backup, dict) and isinstance(saved_backup.get("jobs"), list):
+        manager.backup = saved_backup
     try:
         # Exactly one discovery/read on each integration startup, no polling.
         await manager.load()

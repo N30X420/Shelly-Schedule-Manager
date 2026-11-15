@@ -10,7 +10,7 @@ from .entity import ScheduleEntity
 async def async_setup_entry(hass, entry, async_add_entities):
     manager = hass.data[DOMAIN][entry.entry_id]
     async_add_entities(
-        [ScheduleButton(entry, manager, "load"), ScheduleButton(entry, manager, "save")]
+        [ScheduleButton(entry, manager, op) for op in ("load", "save", "backup", "restore")]
     )
 
 
@@ -18,8 +18,12 @@ class ScheduleButton(ScheduleEntity, ButtonEntity):
     def __init__(self, entry, manager, operation):
         super().__init__(entry, manager, operation)
         self.operation = operation
-        self._attr_name = f"{operation.title()} {'from' if operation == 'load' else 'to'} Shelly"
-        self._attr_icon = "mdi:download" if operation == "load" else "mdi:content-save"
+        names = {"load": "Load from Shelly", "save": "Save to Shelly",
+                 "backup": "Back up Shelly schedules", "restore": "Stage backup restore"}
+        icons = {"load": "mdi:download", "save": "mdi:content-save",
+                 "backup": "mdi:content-copy", "restore": "mdi:backup-restore"}
+        self._attr_name = names[operation]
+        self._attr_icon = icons[operation]
 
     def _notify(self, message: str, *, failed: bool) -> None:
         """Upsert a per-device notification instead of growing an endless list."""
@@ -31,12 +35,19 @@ class ScheduleButton(ScheduleEntity, ButtonEntity):
         )
 
     async def async_press(self) -> None:
-        operation = "Load" if self.operation == "load" else "Save"
+        operation = self.operation.title()
         try:
             if self.operation == "load":
                 # WARNING: Load intentionally discards unsaved local changes.
                 await self.manager.load()
                 message = f"✅ Loaded {len(self.manager.jobs)} schedules from **{self.entry.title}**."
+            elif self.operation == "backup":
+                count = await self.manager.make_backup()
+                message = f"✅ Backed up {count} schedule(s) from **{self.entry.title}**."
+            elif self.operation == "restore":
+                count = await self.manager.stage_restore()
+                message = (f"✅ Staged {count} schedule changes from backup for "
+                           f"**{self.entry.title}**. Review & Save to apply.")
             else:
                 updated = await self.manager.save()
                 message = (
