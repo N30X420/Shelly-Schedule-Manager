@@ -14,15 +14,24 @@ A custom Home Assistant integration for viewing and editing schedules on Shelly 
 - See operation results in card messages and per-device persistent Home Assistant notifications.
 - Optionally use the included Lovelace card to manage schedules from a dashboard.
 - Read schedules once when the integration starts; no periodic polling of the Shelly device.
+- Create, duplicate, and delete jobs through the card's **Manage schedules / Timeline** workspace.
+- Save individual jobs or device schedule sets as named templates; preview and stage copies to other devices with switch-channel mapping.
+- Inspect a weekly or daily timeline grouped by switch channel, including disabled events and advanced-rule fallbacks.
+- Preview bulk template/clone/enable/disable operations, explicitly confirm writes, and follow per-device progress (at most two devices execute concurrently).
+- Test connections manually and download redacted diagnostics.
+- Keep versioned history, compare snapshots, stage rollback, and configure retention (20 snapshots per device by default).
+
+See [usage and troubleshooting](docs/USAGE.md), [storage and architecture](docs/ARCHITECTURE.md), [release notes](CHANGELOG.md), and the [real-device verification checklist](docs/VERIFY.md).
 
 ## Requirements and limitations
 
 - A Shelly Gen2 or Gen3 device with the RPC Schedule API enabled and reachable from Home Assistant's network.
 - The device's local RPC username and password.
-- The integration supports schedules with a fixed time in six-field cron format (`second minute hour day month weekday`). The time entity edits only the time; the weekday entity edits only the weekday field. Day-of-month, month, and schedule actions are preserved.
+- The simple time/weekday editor supports six-field cron (`second minute hour day month weekday`). Other cron formats, sunrise/sunset jobs, and arbitrary existing RPC calls are preserved. Advanced times are unavailable through the time helper and appear in the workspace's fallback list; edit their expressions on Shelly.
 - Weekday editing supports `*`, individual numeric days, weekday names, and comma-separated lists. Advanced weekday expressions such as ranges or steps are preserved but must be edited on the Shelly. At least one weekday must remain selected.
-- Create or delete schedules on the Shelly; this integration edits existing schedules only.
-- Schedule actions are displayed but cannot be edited in Home Assistant.
+- New jobs use `Switch.Set` ON/OFF actions, an explicit switch component ID, and device-local time. Shelly documents a maximum of 20 jobs per device. Cloning never reuses a source device's schedule IDs.
+- Arbitrary existing actions remain intact. Cross-device cloning/creation and action-changing rollback are supported for `Switch.Set` only; unsupported methods/components are rejected before staging or saving. Custom actions cannot be edited through the simple editor.
+- The new workspace, diagnostics and management action require a Home Assistant administrator account. Existing entities and dashboard card types remain available.
 - Custom schedule names are Home Assistant metadata, not Shelly schedule fields. They are saved locally, survive Home Assistant restarts, and are not sent to the device. Names may be up to 80 characters.
 - Changing an entity only stages the change locally. It does not update the Shelly until you press **Save to Shelly**.
 - **Load from Shelly** replaces the local schedule data and discards any unsaved changes.
@@ -67,7 +76,7 @@ For each device, the integration creates these buttons:
 
 For each schedule it creates a time entity, an enabled switch, a text entity for its custom name, and a **Job … days** text entity for weekdays. Set weekdays as comma-separated numbers (`0` = Sunday through `6` = Saturday); for example, `1,2,3,4,5` selects Monday through Friday. Advanced weekday rules appear as `advanced` and cannot be changed through this entity.
 
-These entities can be used directly in Home Assistant even if you do not install the optional card. Pressing **Save to Shelly** directly applies staged changes without the card's review screen. Operation results, including authentication, connection, conflict, and verification errors, appear in a persistent Home Assistant notification for the device.
+These entities can be used directly in Home Assistant even if you do not install the optional card. Pressing **Save to Shelly** directly saves ordinary updates. Pending creates, deletes, action changes, or staged name restoration require a full preview and confirmation through the workspace or the `shelly_schedule_manager.manage` action. New jobs get permanent helper entities only after Shelly assigns their IDs. Operation results also appear in Home Assistant notifications.
 
 ## Optional Lovelace card
 
@@ -113,35 +122,39 @@ If upgrading from the separate card installation, replace the old `/local/shelly
 
 Press **Review & Save** to see pending changes to times, weekdays, and enabled states, then **Confirm Save to Shelly** to apply them to the selected device. Cancel closes the review and keeps your staged edits. Loading while schedule changes are pending asks for confirmation. Card messages show operation success or failure.
 
+Open **Manage schedules / Timeline** (**Schema’s beheren / Tijdlijn** in Dutch) for the new features. Confirm the configured device selected inside this workspace. Stage creates, duplicates, deletes or restored settings, then press **Preview & Save all changes** and inspect the complete operation list before **Confirm Save to Shelly**. The timeline and per-device bulk progress update through authenticated Home Assistant push messages; they do not poll Shelly. Template application and copying have a separate preview and local staging step before Save. See [the workspace guide](docs/USAGE.md).
+
 ## Save verification
 
-When there are pending changes, Save first reads `Schedule.List` and checks the edited jobs against their last loaded or successfully saved values. If any edited job conflicts, the save stops before writing anything. Otherwise, it sends `Schedule.Update` only for changed jobs, preserving their existing RPC actions, then reads `Schedule.List` again.
+When there are pending changes, Save reads `Schedule.List`, checks edited/deleted jobs against the baseline, and discovers device identity, methods and switch components. If any edited job conflicts, the save stops before writing anything. A deterministic plan deletes first to free capacity, updates existing jobs, then creates new ones without supplying IDs. Save reads `Schedule.List` again to verify the final state. Previews are invalidated by local edits or a changed loaded configuration.
 
 A job is marked saved only when its returned `timespec`, `enable`, and unchanged `calls` match the intended state. If some jobs fail verification, successfully verified jobs are marked saved and the others remain unsaved. If updates are interrupted or the verification read fails, changes remain marked unsaved even though the device may have applied them. Load from Shelly to inspect the actual device state before retrying; this discards local edits.
+
+Assigned IDs and names are retained after successful Create responses, even if a later operation fails. An uncertain Create response is never retried automatically: a durable recovery marker blocks further saves until an explicit Load. Multi-job and multi-device saves are not atomic. Device identity changes also block writes until the device is reconfigured.
 
 ## Backup and restore
 
 1. Press **Back up device** in the card, or **Back up Shelly schedules** on the device page, to snapshot the schedules currently on the Shelly. Unsaved local edits are not included.
-2. To restore, load schedules first if needed, then press **Stage restore** in the card or **Stage backup restore** on the device page. This replaces local schedule edits with the backed-up timespecs (including weekdays) and enabled states. The card asks for confirmation before replacing edits.
-3. Review the staged changes and press **Review & Save**, then **Confirm Save to Shelly**. Without the card, inspect the entities and press **Save to Shelly**.
+2. Open **History and rollback** to compare a snapshot with the current editor or another snapshot. **Restore (preview)** shows a proposal; **Stage proposal locally** replaces local edits only. The legacy **Stage restore** button still stages the latest manual backup.
+3. Use the workspace's **Preview & Save all changes**, then confirm. Missing jobs are recreated with new device-assigned IDs; obsolete jobs are deleted only by the confirmed Save plan.
 
-One backup is stored per device config entry in Home Assistant's `.storage` under `shelly_schedule_manager_backup_<entry_id>` and survives restarts. Each new backup replaces the previous snapshot; Load and Save do not replace it. The snapshot contains schedule IDs, timespecs, enabled states, and RPC actions. Custom names are stored separately and are not restored from this snapshot.
+The latest manual backup remains at `shelly_schedule_manager_backup_<entry_id>` in Home Assistant's `.storage` for compatibility. Versioned history at `shelly_schedule_manager_history_<entry_id>` records manual backups and completed, verified saves/restores/bulk changes, including friendly names. Existing backups are imported once into history without deleting the original. History defaults to 20 immutable snapshots per device; **Set retention limit** accepts 1–1000. See [storage migration details](docs/ARCHITECTURE.md).
 
-Staging a restore requires the loaded schedule IDs and RPC actions to match the backup. If either differs, nothing is restored. Restore staging does not contact the Shelly or recreate deleted schedules; saving the staged settings performs the usual conflict checks and verification.
+Restoration validates capabilities before staging and again before writing. Unsupported action changes, device conflicts, and capacity violations stop the operation. Sensitive fields are redacted from stored snapshots; snapshots containing redacted action parameters cannot be restored. Templates containing recognized secret fields are rejected.
 
 ## Network activity
 
-Setup checks connectivity with `Schedule.List`. The integration then reads schedules once on initialization, with no timer-based polling. Each explicit Load or Backup performs a read. A Save with pending changes performs a preflight read, updates changed jobs, and reads back for verification; a Save with no changes makes no device calls. Editing names, times, weekdays, or enabled states and staging a restore do not contact the Shelly.
+Setup checks connectivity with `Schedule.List`, and initialization reads schedules once. Explicit Load and Backup read schedules. Save previews, template/clone/restore validation and bulk previews perform explicit reads and capability checks. Test Connection reads identity, methods, component status, schedules and optional timezone metadata. Confirmed Save runs preflight checks, performs only planned writes and reads back. Ordinary helper edits, staging a simple create/duplicate/delete, timeline rendering, workspace subscriptions, cached diagnostics downloads, and a Save with no changes make no device calls. There is no timer-based polling.
 
 ## Security
 
-The integration connects to the device's local RPC endpoint over HTTP and uses HTTP Digest authentication. Use it on a trusted local network and avoid exposing the device's RPC endpoint to the internet.
+The integration connects to the device's local RPC endpoint over HTTP and uses HTTP Digest authentication. Use it on a trusted local network and avoid exposing the device's RPC endpoint to the internet. Credentials remain in Home Assistant config entries. The management API is authenticated and administrator-only; there is no unauthenticated RPC proxy. Diagnostics use selected metadata and recursive secret redaction, and card content is rendered as text.
 
 ## Repository maintenance
 
-The integration lives in `custom_components/shelly_schedule_manager`; `hacs.json` at the repository root supplies its HACS metadata. GitHub Actions runs HACS validation and Home Assistant's hassfest on pushes and pull requests, and can also be run manually.
+The integration lives in `custom_components/shelly_schedule_manager`; `hacs.json` supplies HACS metadata. GitHub Actions runs Python/JavaScript regression tests, HACS validation and Home Assistant's hassfest. Local testing instructions and validation limits are in [VERIFY.md](docs/VERIFY.md).
 
-For a release, update the integration manifest's version and publish a matching GitHub release (for example, manifest version `0.6.3` and tag `v0.6.3`). No ZIP asset is required: HACS downloads the integration directory, including both card languages, from the selected ref. The selected branch or release must contain the HACS layout; older releases with the previous layout are not compatible.
+The proposed release is **0.7.0**, with matching manifest version and proposed tag `v0.7.0`. No ZIP asset is required: HACS downloads the integration directory, including all card modules. Publish only after the GitHub validation checks and [real-device checklist](docs/VERIFY.md) pass. Existing config entries, positive job entity IDs, names, backup files and card resource URLs remain compatible. Installing this release does not automatically write schedules.
 
 HACS validation skips only the external Home Assistant Brands check for custom-repository use. Inclusion in the default HACS catalog is a separate submission and requires a Home Assistant Brands entry and all validation checks to pass. Before submitting, remove `ignore: brands` from the validation workflow. See the [HACS publishing requirements](https://www.hacs.dev/docs/publish/include/).
 

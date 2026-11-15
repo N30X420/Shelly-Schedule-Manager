@@ -1,4 +1,5 @@
-/* Shelly Schedule Manager dashboard card v0.6.3. No external libraries or polling. */
+/* Shelly Schedule Manager dashboard card v0.7.0. No external libraries or polling. */
+import {renderManagerPanel, openWorkspace, closeWorkspace} from './manager-panel.js';
 export class ShellyScheduleCard extends HTMLElement {
   static get cardType() { return 'shelly-schedule-card'; }
 
@@ -54,6 +55,16 @@ export class ShellyScheduleCard extends HTMLElement {
     this._notice = null;
     this._lastSignature = '';
     this._review = false;
+  }
+
+  connectedCallback() {
+    this._managerDisconnected=false;
+    if(this._managerOpen && this._hass) openWorkspace(this);
+  }
+
+  disconnectedCallback() {
+    closeWorkspace(this);
+    clearTimeout(this._noticeTimer);
   }
 
   setConfig(config) {
@@ -314,6 +325,7 @@ export class ShellyScheduleCard extends HTMLElement {
     }
     if (!rows.length) card.append(this._el('p',{text:this._t('noSchedules')}));
     card.append(this._el('div',{className:'foot',text: pending?this._t('pending', {count:pending}):this._t('footer')}));
+    renderManagerPanel(this,card,chosen);
   }
 }
 if (!customElements.get('shelly-schedule-card')) customElements.define('shelly-schedule-card',ShellyScheduleCard);
