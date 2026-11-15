@@ -38,7 +38,7 @@ A custom Home Assistant integration for viewing and editing schedules on Shelly 
 3. Find **Shelly Schedule Manager** in HACS and download it.
 4. Restart Home Assistant, then follow the configuration steps below.
 
-HACS manages the integration files and updates. The optional Lovelace card still needs the separate installation described below. This repository is installed as a custom repository; it is not listed in the default HACS catalog.
+HACS installs and updates both the integration and its bundled Lovelace card. After configuring a device, add the dashboard resource described below; no separate JavaScript download or copy into `www` is needed. This repository is installed as a custom repository; it is not listed in the default HACS catalog.
 
 ### Manual installation
 
@@ -71,24 +71,17 @@ These entities can be used directly in Home Assistant even if you do not install
 
 ## Optional Lovelace card
 
-The repository's `shelly-schedule-card.js` is a separate dashboard resource. HACS installs only `custom_components/shelly_schedule_manager/` for this integration; it does not copy the card into `www` or register a dashboard resource. Download the card from this repository separately, including when installing the integration through HACS.
+The card is included at `custom_components/shelly_schedule_manager/www/shelly-schedule-card.js`, so both HACS and manual integration installations include it. The integration serves the file directly at `/shelly_schedule_manager/shelly-schedule-card.js` once it is set up. It does not copy files into `/config/www/community` or use `/hacsfiles`.
 
-1. Copy `shelly-schedule-card.js` into your Home Assistant `www` directory, creating it if needed:
-
-   ```text
-   <config>/www/shelly-schedule-card.js
-   ```
-
-   `<config>` is the directory containing `configuration.yaml` (commonly `/config`), so the usual destination is `/config/www/shelly-schedule-card.js`. Home Assistant serves files in `www` under `/local/`: the file above is available at `/local/shelly-schedule-card.js`. See [Home Assistant's file hosting documentation](https://www.home-assistant.io/integrations/http/#hosting-files).
-
-   If you created `www` for the first time, restart Home Assistant. Open `/local/shelly-schedule-card.js` on your Home Assistant address and confirm that it returns JavaScript before adding the resource. A 404 means the file is missing from the served location; check its exact name and path and restart if you just created `www`.
-
-2. In **Settings → Dashboards → Resources**, add `/local/shelly-schedule-card.js` as a JavaScript module. If Resources is not available in the UI, enable YAML mode for your dashboard and add:
+1. Install or update the integration, restart Home Assistant, and configure at least one Shelly Schedule Manager device.
+2. In **Settings → Dashboards → Resources**, add `/shelly_schedule_manager/shelly-schedule-card.js` as a **JavaScript module**. Enable **Advanced mode** in your Home Assistant profile if the Resources menu is hidden. For YAML-managed resources, use this under `lovelace:` in `configuration.yaml`:
 
    ```yaml
-   resources:
-     - url: /local/shelly-schedule-card.js
-       type: module
+   lovelace:
+     resource_mode: yaml
+     resources:
+       - url: /shelly_schedule_manager/shelly-schedule-card.js
+         type: module
    ```
 
 3. Add a **Manual** card to a dashboard and use:
@@ -100,7 +93,9 @@ The repository's `shelly-schedule-card.js` is a separate dashboard resource. HAC
 
 The card lists configured Shelly Schedule Manager devices and lets you select which device to manage. Edit each schedule's local name, time, enabled state, and **Repeat** weekday buttons. Names are saved in Home Assistant immediately and are independent of staged schedule changes.
 
-When updating the card, replace the file in `www` separately and refresh the browser cache. You can append a version query to the resource URL, such as `/local/shelly-schedule-card.js?v=0.6.0`, and change it when replacing the file to request a fresh copy.
+HACS updates the bundled card with the integration. Restart Home Assistant after updating and refresh the dashboard. The resource is served without Home Assistant's long-lived static cache headers.
+
+If upgrading from the separate card installation, replace the old `/local/shelly-schedule-card.js` resource with `/shelly_schedule_manager/shelly-schedule-card.js`; keep only one resource for this card. The old copy in `/config/www` is no longer needed. If the new URL returns 404, check that the bundled file exists, restart Home Assistant, and check the integration setup logs.
 
 Press **Review & Save** to see pending changes to times, weekdays, and enabled states, then **Confirm Save to Shelly** to apply them to the selected device. Cancel closes the review and keeps your staged edits. Loading while schedule changes are pending asks for confirmation. Card messages show operation success or failure.
 
@@ -132,7 +127,7 @@ The integration connects to the device's local RPC endpoint over HTTP and uses H
 
 The integration lives in `custom_components/shelly_schedule_manager`; `hacs.json` at the repository root supplies its HACS metadata. GitHub Actions runs HACS validation and Home Assistant's hassfest on pushes and pull requests, and can also be run manually.
 
-For a release, update the integration manifest's version and publish a matching GitHub release (for example, manifest version `0.6.1` and tag `v0.6.1`). No ZIP asset is required: HACS downloads the integration directory from the selected ref. The selected branch or release must contain the HACS layout; older releases with the previous layout are not compatible.
+For a release, update the integration manifest's version and publish a matching GitHub release (for example, manifest version `0.6.2` and tag `v0.6.2`). No ZIP asset is required: HACS downloads the integration directory, including the bundled card, from the selected ref. The selected branch or release must contain the HACS layout; older releases with the previous layout are not compatible.
 
 HACS validation skips only the external Home Assistant Brands check for custom-repository use. Inclusion in the default HACS catalog is a separate submission and requires a Home Assistant Brands entry and all validation checks to pass. Before submitting, remove `ignore: brands` from the validation workflow. See the [HACS publishing requirements](https://www.hacs.dev/docs/publish/include/).
 

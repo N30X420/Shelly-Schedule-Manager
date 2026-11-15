@@ -1,12 +1,30 @@
 """Shelly Schedule Manager integration."""
+from pathlib import Path
+
+from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.storage import Store
+from homeassistant.helpers.typing import ConfigType
 
 from .api import ShellyClient
 from .const import DOMAIN, PLATFORMS
 from .manager import ScheduleManager
+
+
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Serve the bundled card once, independently of device entry lifecycles."""
+    await hass.http.async_register_static_paths(
+        [
+            StaticPathConfig(
+                f"/{DOMAIN}/shelly-schedule-card.js",
+                str(Path(__file__).parent / "www" / "shelly-schedule-card.js"),
+                cache_headers=False,
+            )
+        ]
+    )
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
