@@ -1,0 +1,17 @@
+manage:
+  name: Manage schedules
+  description: Admin-only local staging, previews, verified saves, templates, history, bulk operations and manual diagnostics. Writes require a current preview and explicit confirmation.
+  fields:
+    action:
+      name: Action
+      description: Manager operation. See README and docs/USAGE.md for parameters.
+      required: true
+      example: status
+      selector:
+        text:
+    data:
+      name: Parameters
+      description: Operation parameters, including the configured integration entry_id where required.
+      example: '{"entry_id": "your-config-entry-id"}'
+      selector:
+        object:

@@ -1,4 +1,4 @@
-/* Shelly Schedule Manager Dutch card v0.6.3. Shares schedule behavior with the English card. */
+/* Shelly Schedule Manager Dutch card v0.7.0. Shares schedule behavior with the English card. */
 import {ShellyScheduleCard} from './shelly-schedule-card.js';
 
 class ShellyScheduleCardNL extends ShellyScheduleCard {

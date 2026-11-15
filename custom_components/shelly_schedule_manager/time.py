@@ -11,7 +11,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
     known = set()
 
     def add_jobs():
-        fresh = sorted(set(manager.jobs) - known)
+        fresh = sorted(key for key in set(manager.jobs) - known if key >= 0)
         if fresh:
             known.update(fresh)
             async_add_entities([ScheduleTime(entry, manager, job_id) for job_id in fresh])
@@ -29,7 +29,8 @@ class ScheduleTime(ScheduleEntity, TimeEntity):
 
     @property
     def available(self):
-        return self.job_id in self.manager.jobs
+        job = self.manager.jobs.get(self.job_id)
+        return job is not None and not job.deleted and job.local_time is not None
 
     @property
     def native_value(self) -> time | None:
@@ -45,5 +46,4 @@ class ScheduleTime(ScheduleEntity, TimeEntity):
         job = self.manager.jobs.get(self.job_id)
         if job is None:
             raise HomeAssistantError("Job no longer exists. Load from Shelly again.")
-        job.set_time(value)
-        self.manager.notify()
+        await self.manager.edit(self.job_id, {"time": value.isoformat()})

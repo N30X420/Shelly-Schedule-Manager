@@ -11,7 +11,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
     known = set()
 
     def add_jobs():
-        fresh = sorted(set(manager.jobs) - known)
+        fresh = sorted(key for key in set(manager.jobs) - known if key >= 0)
         if fresh:
             known.update(fresh)
             async_add_entities([entity for job_id in fresh for entity in (ScheduleName(entry, manager, job_id), ScheduleWeekdays(entry, manager, job_id))])
@@ -32,7 +32,8 @@ class ScheduleName(ScheduleEntity, TextEntity):
 
     @property
     def available(self):
-        return self.job_id in self.manager.jobs
+        job = self.manager.jobs.get(self.job_id)
+        return job is not None and not job.deleted
 
     @property
     def native_value(self) -> str:
@@ -57,7 +58,8 @@ class ScheduleWeekdays(ScheduleEntity, TextEntity):
 
     @property
     def available(self):
-        return self.job_id in self.manager.jobs
+        job = self.manager.jobs.get(self.job_id)
+        return job is not None and not job.deleted
 
     @property
     def native_value(self):
@@ -75,5 +77,4 @@ class ScheduleWeekdays(ScheduleEntity, TextEntity):
         job = self.manager.jobs.get(self.job_id)
         if job is None:
             raise HomeAssistantError("Job no longer exists. Load from Shelly again.")
-        job.set_weekdays(value)
-        self.manager.notify()
+        await self.manager.edit(self.job_id, {"weekdays": value})
