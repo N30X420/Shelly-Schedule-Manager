@@ -38,7 +38,7 @@ class ScheduleEnabled(ScheduleEntity, SwitchEntity):
     @property
     def extra_state_attributes(self):
         job = self.manager.jobs.get(self.job_id)
-        return {"action": job.action, "unsaved_changes": job.dirty} if job else {}
+        return {"action": job.action, "unsaved_changes": job.dirty, "saved_enabled": job.original_enabled} if job else {}
 
     async def async_turn_on(self, **kwargs):
         self._set(True)

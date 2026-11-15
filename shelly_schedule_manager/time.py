@@ -39,7 +39,7 @@ class ScheduleTime(ScheduleEntity, TimeEntity):
     @property
     def extra_state_attributes(self):
         job = self.manager.jobs.get(self.job_id)
-        return {"action": job.action, "timespec": job.timespec, "unsaved_changes": job.dirty} if job else {}
+        return {"action": job.action, "timespec": job.timespec, "unsaved_changes": job.dirty, "saved_timespec": job.original_timespec} if job else {}
 
     async def async_set_value(self, value: time) -> None:
         job = self.manager.jobs.get(self.job_id)

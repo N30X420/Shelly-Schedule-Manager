@@ -20,6 +20,58 @@ class Job:
     enabled: bool
     calls: list[dict[str, Any]]
     dirty: bool = False
+    original_timespec: str = ""
+    original_enabled: bool | None = None
+
+    def __post_init__(self) -> None:
+        self.original_timespec = self.timespec
+        self.original_enabled = self.enabled
+
+    def _refresh_dirty(self) -> None:
+        self.dirty = (self.timespec != self.original_timespec or
+                      self.enabled != self.original_enabled)
+
+    @property
+    def weekday_values(self) -> set[int] | None:
+        """Represent simple day-of-week expressions only; preserve advanced cron."""
+        fields = self.timespec.split()
+        if len(fields) != 6:
+            return None
+        field = fields[5].strip().upper()
+        if field == "*":
+            return set(range(7))
+        aliases = {"SUN": 0, "MON": 1, "TUE": 2, "WED": 3,
+                   "THU": 4, "FRI": 5, "SAT": 6}
+        values = set()
+        for fragment in field.split(","):
+            if not fragment:
+                return None
+            if fragment.isdecimal() and 0 <= int(fragment) <= 7:
+                values.add(int(fragment) % 7)
+            elif fragment in aliases:
+                values.add(aliases[fragment])
+            else:
+                return None
+        return values or None
+
+    @property
+    def weekday_text(self) -> str:
+        values = self.weekday_values
+        return ",".join(str(day) for day in sorted(values)) if values is not None else "advanced"
+
+    def set_weekdays(self, value: str) -> None:
+        if self.weekday_values is None:
+            raise HomeAssistantError("Advanced weekday cron expression: edit it on Shelly")
+        tokens = value.split(",")
+        if not tokens or any(not t.isdecimal() or int(t) > 6 for t in tokens):
+            raise HomeAssistantError("Choose at least one weekday (0=Sun, 1=Mon, ... 6=Sat)")
+        days = {int(t) for t in tokens}
+        if not days:
+            raise HomeAssistantError("At least one weekday is required")
+        fields = self.timespec.split()
+        fields[5] = "0,1,2,3,4,5,6" if len(days) == 7 else ",".join(str(x) for x in sorted(days))
+        self.timespec = " ".join(fields)
+        self._refresh_dirty()
 
     @property
     def local_time(self) -> time:
@@ -34,12 +86,12 @@ class Job:
         updated = " ".join(fields)
         if updated != self.timespec:
             self.timespec = updated
-            self.dirty = True
+            self._refresh_dirty()
 
     def set_enabled(self, enabled: bool) -> None:
         if enabled != self.enabled:
             self.enabled = enabled
-            self.dirty = True
+            self._refresh_dirty()
 
     @property
     def action(self) -> str:
@@ -133,6 +185,8 @@ class ScheduleManager:
                     raise HomeAssistantError(
                         f"Save stopped at job {job.id}; previous jobs may have been updated: {exc}"
                     ) from exc
+                job.original_timespec = job.timespec
+                job.original_enabled = job.enabled
                 job.dirty = False
                 self.revision = result.get("rev", self.revision)
                 self.notify()

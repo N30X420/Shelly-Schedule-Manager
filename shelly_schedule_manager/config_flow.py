@@ -36,8 +36,8 @@ class ShellyScheduleFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="user",
             data_schema=vol.Schema(
                 {
-                    vol.Required("name", default="Shed"): str,
-                    vol.Required("host", default="192.168.21.219"): str,
+                    vol.Required("name", default=""): str,
+                    vol.Required("host", default=""): str,
                     vol.Required("username", default="admin"): str,
                     vol.Required("password"): str,
                 }
