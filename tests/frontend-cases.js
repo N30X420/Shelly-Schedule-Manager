@@ -39,7 +39,7 @@ export async function runFrontendTests({timelineEvents,classes}) {
     const inventoryCard=new Card();
     inventoryCard.setConfig({type:`custom:${Card.cardType}`,management:false});
     const loadButton={entity_id:'button.load',unique_id:'entry_load',state:'unknown',attributes:{schedule_job_ids:[2,9,12]}};
-    const inventoryItems=[loadButton,{entity_id:'button.save',unique_id:'entry_save',state:'unknown'}];
+    const inventoryItems=[loadButton,...['save','backup','restore'].map(op=>({entity_id:`button.${op}`,unique_id:`entry_${op}`,state:'unknown'}))];
     for(const id of [1,2,3,4,5,6,7,8,9,12]) {
       const configured=[2,9,12].includes(id);
       inventoryItems.push({entity_id:`time.job_${id}_time`,unique_id:`entry_job_${id}_time`,
@@ -54,6 +54,7 @@ export async function runFrontendTests({timelineEvents,classes}) {
     inventoryCard.hass={};
     same(inventoryCard._identify(inventoryDevice).rows.map(r=>r.id),[2,9,12],'Only configured IDs appear, including jobs beyond eight');
     same(flatten(inventoryCard.shadowRoot).filter(e=>e.className==='row').length,3,'No stale or placeholder schedule rows');
+    same(flatten(inventoryCard.shadowRoot).find(e=>e.className==='actions').children.length,2,'Main controls contain only Load and Review & Save');
     same(inventoryCard.getCardSize(),10,'Layout estimate follows the configured row count');
     loadButton.attributes.schedule_job_ids=[];
     inventoryCard.hass={};
@@ -81,6 +82,8 @@ export async function runFrontendTests({timelineEvents,classes}) {
     timelineSection().open=false;timelineSection().events.toggle();card._render();
     assert(!timelineSection().open,'Collapsed timeline persists across renders');
     assert(text(card.shadowRoot).includes(dutch?'Meerdere apparaten beheren':'Bulk Management'),'Bulk controls rendered');
+    assert(flatten(card.shadowRoot).some(e=>e.tagName==='BUTTON'&&e.textContent===(dutch?'Back-up maken':'Back up device')),'Backup remains in the management workspace');
+    assert(flatten(card.shadowRoot).some(e=>e.tagName==='BUTTON'&&e.textContent===(dutch?'Laatste back-up klaarzetten':'Stage latest backup')),'Restore remains in the management workspace');
     assert(!text(card.shadowRoot).includes(dutch?'Bewerk lokaal':'Edit locally'),'Header editing hint is removed');
     assert(!text(card.shadowRoot).includes(dutch?'Namen en back-ups':'Names and backups'),'Storage footer is removed');
     assert(!text(card.shadowRoot).includes(dutch?'gedocumenteerde Shelly-limiet':'Shelly documented limit'),'Capacity note is removed');

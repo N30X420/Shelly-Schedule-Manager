@@ -148,8 +148,8 @@ Assigned IDs and names are retained after successful Create responses, even if a
 
 ## Backup and restore
 
-1. Press **Back up device** in the card, or **Back up Shelly schedules** on the device page, to snapshot the schedules currently on the Shelly. Unsaved local edits are not included.
-2. Open **History and rollback** to compare a snapshot with the current editor or another snapshot. **Restore (preview)** shows a proposal; **Stage proposal locally** replaces local edits only. The legacy **Stage restore** button still stages the latest manual backup.
+1. Open **Manage schedules / Timeline** and press **Back up device**, or use **Back up Shelly schedules** on the Home Assistant device page, to snapshot the schedules currently on the Shelly. Unsaved local edits are not included. Backup and restore controls are located inside the card's management workspace.
+2. Open **History and rollback** to compare a snapshot with the current editor or another snapshot. **Restore (preview)** shows a proposal; **Stage proposal locally** replaces local edits only. **Stage latest backup** inside the workspace, or **Stage backup restore** on the Home Assistant device page, stages the latest manual backup.
 3. Use the workspace's **Preview & Save all changes**, then confirm. Missing jobs are recreated with new device-assigned IDs; obsolete jobs are deleted only by the confirmed Save plan.
 
 The latest manual backup remains at `shelly_schedule_manager_backup_<entry_id>` in Home Assistant's `.storage` for compatibility. Versioned history at `shelly_schedule_manager_history_<entry_id>` records manual backups and completed, verified saves/restores/bulk changes, including friendly names. Existing backups are imported once into history without deleting the original. History defaults to 20 immutable snapshots per device; **Set retention limit** accepts 1–1000. See [storage migration details](docs/ARCHITECTURE.md).

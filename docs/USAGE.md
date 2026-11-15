@@ -2,7 +2,7 @@
 
 Use either the English or Dutch card resource documented in the README. Sign in as a Home Assistant administrator and open **Manage schedules / Timeline**. Select the configured device inside this workspace and check its title before acting. Existing helper controls and the ordinary time/weekday review remain available above it.
 
-Set `management: false` in the card YAML to hide the advanced workspace and its entry button on an everyday dashboard. Use `management: true` on a maintenance card; the default is `true` for backward compatibility. The setting applies to both languages and accepts only YAML booleans, not quoted strings. It controls this card's presentation, while Home Assistant continues to enforce permissions. Existing basic editing, load/save and backup controls remain available. Disabling the workspace closes its subscription without discarding staged backend changes.
+Set `management: false` in the card YAML to hide the advanced workspace and its entry button on an everyday dashboard. Use `management: true` on a maintenance card; the default is `true` for backward compatibility. The setting applies to both languages and accepts only YAML booleans, not quoted strings. It controls this card's presentation, while Home Assistant continues to enforce permissions. Basic editing and load/save remain available in the main section. Backup and restore controls are inside the management workspace. Disabling the workspace closes its subscription without discarding staged backend changes.
 
 ## Create, duplicate, edit and delete
 

@@ -2,6 +2,7 @@
 
 ## 0.7.0 — prepared, not published
 
+- Keep backup and restore controls inside the management workspace; simplify the main action row to Load and Review & Save.
 - Default new schedules to all seven days and simplify both card languages by removing the editing hint, storage footer and documented-limit note.
 - Show current device-assigned schedules instead of stale registered helpers, including empty devices and disabled jobs; estimate card height from the displayed schedule count.
 - Add the boolean `management` card option (default `true`) to hide the advanced workspace on everyday dashboards, and put the weekly timeline in its own initially collapsed section.

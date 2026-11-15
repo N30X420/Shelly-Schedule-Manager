@@ -13,10 +13,7 @@ export class ShellyScheduleCard extends HTMLElement {
       title: 'Shelly schedules', chooseDevice: 'Choose Shelly device',
       working: 'Working…', loadButton: '↧ Load from Shelly', reviewButton: '↥ Review & Save',
       loadConfirm: 'Load will discard unsaved changes for this device. Continue?',
-      load: 'Load', backup: 'Backup', restore: 'Stage restore', save: 'Save',
-      backupButton: '▣ Back up device', restoreButton: '↶ Stage restore',
-      backupConfirm: 'Replace the stored backup for this device with its current Shelly schedules? This reads from Shelly.',
-      restoreConfirm: 'Stage the stored backup into the schedule editor? Any currently unsaved edits will be replaced. Nothing is written to Shelly until Review & Save.',
+      load: 'Load', save: 'Save',
       reviewLabel: 'Review schedule changes', confirmOne: 'Confirm {count} schedule change', confirmMany: 'Confirm {count} schedule changes',
       timeChange: 'time {before} → {after}', daysChange: 'weekdays {before} → {after}',
       enabled: 'enabled', disabled: 'disabled', modified: 'Schedule modified', job: 'Job {id}',
@@ -238,7 +235,7 @@ export class ShellyScheduleCard extends HTMLElement {
     devices.forEach(d => selector.append(this._el('option',{value:d.id,text:d.name})));
     selector.value=this._selected;
     header.append(selector);card.append(header);
-    const {load,save,backup,restore,rows}=this._identify(chosen);
+    const {load,save,rows}=this._identify(chosen);
     const modified = rows.filter(r=>r.time?.attributes?.unsaved_changes || r.enabled?.attributes?.unsaved_changes || r.days?.attributes?.unsaved_changes);
     const pending = modified.length;
     const actions=this._el('div',{className:'actions'});
@@ -247,14 +244,6 @@ export class ShellyScheduleCard extends HTMLElement {
       this._review=false;this._call('button','press',{entity_id:load.entity_id},this._t('load'));
     }}));
     actions.append(this._el('button',{className:'primary',text:this._busy?this._t('working'):`${this._t('reviewButton')}${pending?` (${pending})`:''}`,disabled:this._busy || !save || save.state==='unavailable' || !pending,onclick:()=>{this._review=true;this._render();}}));
-    actions.append(this._el('button',{text:this._t('backupButton'),disabled:this._busy || !backup || backup.state==='unavailable',onclick:()=>{
-      if(!confirm(this._t('backupConfirm'))) return;
-      this._call('button','press',{entity_id:backup.entity_id},this._t('backup'));
-    }}));
-    actions.append(this._el('button',{text:this._t('restoreButton'),disabled:this._busy || !restore || restore.state==='unavailable',onclick:()=>{
-      if(!confirm(this._t('restoreConfirm'))) return;
-      this._review=false;this._call('button','press',{entity_id:restore.entity_id},this._t('restore'));
-    }}));
     card.append(actions);
     if (this._review && pending) {
       const pane = this._el('div',{className:'review',role:'region','aria-label':this._t('reviewLabel')});
