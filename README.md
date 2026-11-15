@@ -6,10 +6,11 @@ A custom Home Assistant integration for viewing and editing schedules on Shelly 
 
 - Add multiple Shelly devices through Home Assistant's integration setup.
 - Load schedules manually and edit each schedule's time and enabled state.
+- Give schedules custom names that are stored locally in Home Assistant.
 - Review the schedule action and see which schedules have unsaved changes.
 - Save only changed schedules to the device.
 - Optionally use the included Lovelace card to manage schedules from a dashboard.
-- No periodic polling of the Shelly device.
+- Read schedules once when the integration starts; no periodic polling of the Shelly device.
 
 ## Requirements and limitations
 
@@ -17,6 +18,7 @@ A custom Home Assistant integration for viewing and editing schedules on Shelly 
 - The device's local RPC username and password.
 - The integration supports schedules with a fixed time in six-field cron format (`second minute hour day month weekday`). The time entity edits only the time; other schedule fields and actions are preserved.
 - Schedule actions are displayed but cannot be edited in Home Assistant.
+- Custom schedule names are Home Assistant metadata, not Shelly schedule fields. They are saved locally, survive Home Assistant restarts, and are not sent to the device. Names may be up to 80 characters.
 - Changing an entity only stages the change locally. It does not update the Shelly until you press **Save to Shelly**.
 - **Load from Shelly** replaces the local schedule data and discards any unsaved changes.
 - If saving fails partway through, earlier schedules may already have been written. Load the schedules again to inspect the device before retrying.
@@ -32,9 +34,9 @@ A custom Home Assistant integration for viewing and editing schedules on Shelly 
 2. Restart Home Assistant.
 3. Go to **Settings → Devices & services → Add integration** and search for **Shelly Schedule Manager**.
 4. Enter a device name, its IP address or hostname, and its local RPC username and password. Repeat the setup to add additional devices.
-5. On the device page, press **Load from Shelly** to fetch its schedules.
+5. The integration reads schedules when it starts. Press **Load from Shelly** on the device page whenever you want to reload them manually.
 
-The integration creates a Load button, a Save button, and time and enabled entities for each schedule. You can use those entities directly in Home Assistant even if you do not install the optional card.
+For each device, the integration creates **Load from Shelly** and **Save to Shelly** buttons. For each schedule it creates a time entity, an enabled switch, and a text entity for its custom name. These entities can be used directly in Home Assistant even if you do not install the optional card. Load and Save results are also reported through Home Assistant notifications.
 
 ## Optional Lovelace card
 
@@ -61,7 +63,7 @@ The repository's `shelly-schedule-card.js` is a separate dashboard resource; ins
    title: Shelly schedules
    ```
 
-The card lists configured Shelly Schedule Manager devices. It provides controls to load and save schedules, edit their time and enabled state, and see pending changes. Loading while changes are pending asks for confirmation.
+The card lists configured Shelly Schedule Manager devices. It provides controls to load and save schedules, edit their local name, time, and enabled state, and see pending schedule changes. Names are saved in Home Assistant immediately and are independent of schedule changes. Loading while schedule changes are pending asks for confirmation.
 
 ## Security
 

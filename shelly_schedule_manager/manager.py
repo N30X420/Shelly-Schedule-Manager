@@ -74,6 +74,8 @@ class ScheduleManager:
         self.jobs: dict[int, Job] = {}
         self.loaded = False
         self.revision: int | None = None
+        self.job_names: dict[int, str] = {}
+        self.name_store = None
         self._listeners: list[Callable[[], None]] = []
         self._lock = asyncio.Lock()
 
@@ -84,6 +86,21 @@ class ScheduleManager:
     def notify(self) -> None:
         for listener in tuple(self._listeners):
             listener()
+
+    def get_job_name(self, job_id: int) -> str:
+        return self.job_names.get(job_id, f"Job {job_id}")
+
+    async def set_job_name(self, job_id: int, name: str) -> None:
+        if job_id not in self.jobs:
+            raise HomeAssistantError("Job no longer exists. Load from Shelly again.")
+        name = name.strip()
+        if not name:
+            self.job_names.pop(job_id, None)
+        else:
+            self.job_names[job_id] = name
+        if self.name_store is not None:
+            await self.name_store.async_save({str(k): v for k, v in self.job_names.items()})
+        self.notify()
 
     async def load(self) -> None:
         async with self._lock:

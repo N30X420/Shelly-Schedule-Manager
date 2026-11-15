@@ -2,6 +2,7 @@
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.helpers.storage import Store
 
 from .api import ShellyClient
 from .const import DOMAIN, PLATFORMS
@@ -11,6 +12,14 @@ from .manager import ScheduleManager
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     client = ShellyClient(entry.data["host"], entry.data["username"], entry.data["password"])
     manager = ScheduleManager(hass, client)
+    # Names are Home Assistant metadata: stored locally and never sent to Shelly.
+    manager.name_store = Store(hass, 1, f"{DOMAIN}_names_{entry.entry_id}")
+    stored = await manager.name_store.async_load() or {}
+    if isinstance(stored, dict):
+        manager.job_names = {
+            int(key): value for key, value in stored.items()
+            if str(key).isdecimal() and isinstance(value, str) and value.strip()
+        }
     try:
         # Exactly one discovery/read on each integration startup, no polling.
         await manager.load()

@@ -1,4 +1,4 @@
-/* Shelly Schedule Manager dashboard card v0.3.1. No external libraries or polling. */
+/* Shelly Schedule Manager dashboard card v0.4.0. No external libraries or polling. */
 class ShellyScheduleCard extends HTMLElement {
   constructor() {
     super();
@@ -61,9 +61,9 @@ class ShellyScheduleCard extends HTMLElement {
         if (uid.endsWith('_load') || /(?:^|_)load_from_shelly(?:$|_)/.test(entityId) || /load from shelly/.test(name)) load = ent;
         if (uid.endsWith('_save') || /(?:^|_)save_to_shelly(?:$|_)/.test(entityId) || /save to shelly/.test(name)) save = ent;
       }
-      const match = uid.match(/_job_(\d+)_(time|enabled)$/)
-        || entityId.match(/_job_(\d+)_(time|enabled)(?:_\d+)?$/)
-        || name.match(/job\s+(\d+)\s+(time|enabled)/);
+      const match = uid.match(/_job_(\d+)_(time|enabled|name)$/)
+        || entityId.match(/_job_(\d+)_(time|enabled|name)(?:_\d+)?$/)
+        || name.match(/job\s+(\d+)\s+(time|enabled|name)/);
       if (match) {
         const n = Number(match[1]);
         if (!rows.has(n)) rows.set(n, {id:n});
@@ -119,13 +119,14 @@ class ShellyScheduleCard extends HTMLElement {
       ha-card{display:block;padding:18px 18px 16px;background:var(--ha-card-background,var(--card-background-color));border-radius:var(--ha-card-border-radius,12px);box-shadow:var(--ha-card-box-shadow,none)}
       .header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap}
       .heading{font-size:19px;font-weight:650}.hint{font-size:12px;color:var(--secondary-text-color);margin-top:4px}
-      select,input[type=time]{background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color,#8886);border-radius:8px;padding:9px;min-width:0;font:inherit}
+      select,input[type=time],input[type=text]{background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color,#8886);border-radius:8px;padding:9px;min-width:0;font:inherit}
       select{max-width:100%;min-width:150px}.actions{display:flex;gap:9px;flex-wrap:wrap;margin:14px 0}
       button{border:0;border-radius:9px;padding:11px 15px;font:inherit;cursor:pointer;font-weight:600;background:var(--secondary-background-color,#eee);color:var(--primary-text-color)}
       button.primary{background:var(--primary-color,#03a9f4);color:var(--text-primary-color,#fff)}
       button:disabled,select:disabled,input:disabled{opacity:.55;cursor:not-allowed}
       .row{display:grid;grid-template-columns:minmax(105px,1fr) minmax(110px,150px) 68px;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--divider-color,#ddd)}
-      .job{font-weight:600;font-size:14px}.action{font-size:12px;color:var(--secondary-text-color);margin-top:3px}
+      .job{font-weight:600;font-size:14px}
+      input.job-name{width:100%;box-sizing:border-box;padding:7px 9px;font-size:14px;font-weight:600}.action{font-size:12px;color:var(--secondary-text-color);margin-top:3px}
       .pending{font-size:11px;color:var(--warning-color,#d68b00);font-weight:600;margin-left:6px}
       .switch{width:42px;height:24px;accent-color:var(--primary-color);cursor:pointer;justify-self:center}
       .labels{font-size:11px;color:var(--secondary-text-color);display:grid;grid-template-columns:minmax(105px,1fr) minmax(110px,150px) 68px;gap:12px;margin-bottom:5px}
@@ -169,7 +170,21 @@ class ShellyScheduleCard extends HTMLElement {
     for (const row of rows) {
       const action=row.time?.attributes?.action || row.enabled?.attributes?.action || 'Unknown action';
       const dirty=!!(row.time?.attributes?.unsaved_changes || row.enabled?.attributes?.unsaved_changes);
-      const label=this._el('div',{},this._el('div',{className:'job',text:`Job ${row.id}${dirty?' • Unsaved':''}`}),this._el('div',{className:'action',text:action}));
+      const nameValue = row.name?.state && row.name.state !== 'unknown' && row.name.state !== 'unavailable' ? row.name.state : `Job ${row.id}`;
+      const label=this._el('div',{});
+      if (row.name) {
+        label.append(this._el('input',{type:'text',className:'job-name',value:nameValue,maxlength:'80',
+          disabled:this._busy || row.name.state==='unavailable','aria-label':`Name for job ${row.id}`,
+          title:`Rename schedule ${row.id} (stored locally in Home Assistant)`,
+          onchange:(ev)=> {
+            const newName = ev.target.value.trim();
+            if (newName !== nameValue) this._call('text','set_value',{entity_id:row.name.entity_id,value:newName},`Rename job ${row.id}`);
+          }
+        }));
+      } else {
+        label.append(this._el('div',{className:'job',text:`Job ${row.id}`}));
+      }
+      label.append(this._el('div',{className:'action',text:`#${row.id} · ${action}${dirty?' · Unsaved schedule':''}`}));
       const val=row.time?.state || '';
       const valid=/^\d{2}:\d{2}(:\d{2})?$/.test(val);
       const time=this._el('input',{type:'time',step:'1',value:valid?(val.length===5?`${val}:00`:val):'',disabled:this._busy || !row.time || !valid,'aria-label':`Time for job ${row.id}`,onchange:(ev)=>{
@@ -180,7 +195,7 @@ class ShellyScheduleCard extends HTMLElement {
       card.append(this._el('div',{className:'row'},label,time,enabled));
     }
     if (!rows.length) card.append(this._el('p',{text:'No schedules found on this device. Press Load from Shelly.'}));
-    card.append(this._el('div',{className:'foot',text: pending?`${pending} schedule(s) have unsaved changes. Press Save to write them to the Shelly.`:'No pending changes. The card makes no periodic requests to the Shelly.'}));
+    card.append(this._el('div',{className:'foot',text: pending?`${pending} schedule(s) have unsaved changes. Press Save to write them to the Shelly.`:'Schedule names are saved in Home Assistant. No pending schedule changes; no periodic Shelly requests.'}));
   }
 }
 if (!customElements.get('shelly-schedule-card')) customElements.define('shelly-schedule-card',ShellyScheduleCard);
