@@ -14,13 +14,14 @@ export async function openWorkspace(card) {
   card._managerOpen=true;
   if(card._workspaceUnsubscribe || card._workspaceConnecting) {card._render();return;}
   card._workspaceConnecting=true;
+  card._render();
   try {
     const unsubscribe=await card._hass.connection.subscribeMessage(data=>{
-      if(card._config?.management===false) return;
+      if(card._config?.management===false || !card._managerOpen || card._managerDisconnected) return;
       card._workspace=data;
       if(card.shadowRoot.activeElement?.tagName!=='INPUT') card._render();
     }, {type:'shelly_schedule_manager/subscribe'});
-    if(card._managerDisconnected || card._config?.management===false) unsubscribe(); else card._workspaceUnsubscribe=unsubscribe;
+    if(card._managerDisconnected || !card._managerOpen || card._config?.management===false) unsubscribe(); else card._workspaceUnsubscribe=unsubscribe;
   } catch(error) {
     card._toast(String(error?.message || error),'error');
   } finally {card._workspaceConnecting=false;card._render();}
@@ -73,7 +74,18 @@ export function renderManagerPanel(card,container,chosen) {
     .management .actions{margin:6px 0}.manager-editor{border:1px solid var(--primary-color);padding:10px;margin:8px 0}
   `}));
   const box=el('section',{className:'management'});container.append(box);
-  box.append(button(tr('Manage schedules / Timeline','Schema’s beheren / Tijdlijn'),()=>{card._managerDisconnected=false;openWorkspace(card);}));
+  const toggle=button(tr('Manage schedules / Timeline','Schema’s beheren / Tijdlijn'),()=>{
+    if(card._managerOpen) {
+      card._managerOpen=false;
+      closeWorkspace(card);
+      card._render();
+    } else {
+      card._managerDisconnected=false;
+      openWorkspace(card);
+    }
+  });
+  toggle.setAttribute('aria-expanded',card._managerOpen?'true':'false');
+  box.append(toggle);
   if(!card._managerOpen) return;
   if(!card._workspace) {box.append(el('p',{text:tr('Loading workspace (administrator account required)…','Werkruimte laden (beheerdersaccount vereist)…')}));return;}
   const workspace=card._workspace;

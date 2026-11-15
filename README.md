@@ -137,7 +137,7 @@ management: false
 
 This option works with the Dutch card too. Set `management: true` on a separate maintenance card to show the workspace. The default is `true` for existing dashboards. Use YAML booleans without quotes; strings such as `"false"` are rejected. This controls visibility of the advanced workspace; ordinary schedule controls and Home Assistant permissions still apply.
 
-Inside the workspace, **Weekly timeline** is a separate collapsible section, initially closed. Its expanded/collapsed state is preserved while the card updates; opening it shows the day/week controls and chart.
+Press **Manage schedules / Timeline** again to close the workspace; press it once more to reopen it. Closing preserves staged changes and the editor draft, and stops the workspace subscription. Inside the workspace, **Weekly timeline** is a separate collapsible section, initially closed. Its expanded/collapsed state is preserved while the card updates; opening it shows the day/week controls and chart.
 
 ## Save verification
 
