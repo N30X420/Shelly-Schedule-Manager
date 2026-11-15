@@ -95,6 +95,8 @@ export async function runFrontendTests({timelineEvents,classes}) {
     const editor=flatten(card.shadowRoot).find(e=>e.tagName==='BUTTON'&&e.textContent===(dutch?'Bewerken':'Edit'));
     editor.click();
     assert(flatten(card.shadowRoot).some(e=>e.attrs.role==='form'),'Event/job editor renders');
+    same(card._managerEditor.switch_id,0,'Existing output is loaded into the editor');
+    same(card._managerEditor.on,true,'Existing ON/OFF action is loaded into the editor');
     card._managerEditor=null;
     const malicious='<img src=x onerror=alert(1)>';
     device.jobs[0].name=malicious;card._render();
@@ -102,6 +104,24 @@ export async function runFrontendTests({timelineEvents,classes}) {
     assert(!flatten(card.shadowRoot).some(e=>e.tagName==='IMG'),'No HTML injection');
     // No command or device write happens just by rendering the workspace.
     same(calls.length,0,'Rendering is local');
+    flatten(card.shadowRoot).find(e=>e.tagName==='BUTTON'&&e.textContent===(dutch?'Bewerken':'Edit')).click();
+    const outputForm=flatten(card.shadowRoot).find(e=>e.attrs.role==='form');
+    const outputInput=flatten(outputForm).find(e=>e.tagName==='INPUT'&&e.attrs.type==='number');
+    outputInput.events.input({target:{value:'1'}});
+    const onInput=flatten(outputForm).find(e=>e.tagName==='INPUT'&&e.attrs.type==='checkbox');
+    onInput.events.change({target:{checked:false}});
+    await flatten(outputForm).find(e=>e.tagName==='BUTTON'&&e.textContent===(dutch?'Lokaal klaarzetten':'Stage locally')).click();
+    const outputEdit=calls.find(call=>call.action==='edit');
+    same(outputEdit.data.changes.switch_id,1,'Edit sends the staged output ID');
+    same(outputEdit.data.changes.on,false,'Edit sends the staged OFF action');
+    same(device.jobs[0].calls[0].params,{id:0,on:true},'Editing does not mutate the original calls in the frontend');
+    device.jobs[0].calls.push({method:'Switch.Set',params:{id:1,on:false}});
+    card._render();
+    flatten(card.shadowRoot).find(e=>e.tagName==='BUTTON'&&e.textContent===(dutch?'Bewerken':'Edit')).click();
+    const customForm=flatten(card.shadowRoot).find(e=>e.attrs.role==='form');
+    assert(!flatten(customForm).some(e=>e.tagName==='INPUT'&&e.attrs.type==='number'),'Multi-call schedules do not expose output editing');
+    assert(text(customForm).includes(dutch?'bewerk de uitgang op Shelly':'edit the output on Shelly'),'Custom output limitation is explained');
+    device.jobs[0].calls.pop();card._managerEditor=null;
     card._managerResult={action:'application_preview',value:{application_id:'proposal',preview:{changes:1}}};card._render();
     assert(text(card.shadowRoot).includes(dutch?'Voorstel lokaal klaarzetten':'Stage proposal locally'),'Application preview requires staging');
     card._managerResult={action:'preview',value:{review_id:'review',changes:[{operation:'create'}]}};card._render();
@@ -143,6 +163,7 @@ export async function runFrontendTests({timelineEvents,classes}) {
     assert(unsubscribed,'Workspace unsubscribes when card is removed');
     passed.push(`${dutch?'Dutch':'English'} workspace, editor, previews and safe text rendering`);
     passed.push(`${dutch?'Dutch':'English'} management visibility, subscription cleanup and collapsible timeline`);
+    passed.push(`${dutch?'Dutch':'English'} existing output/action editing and custom-action preservation`);
   }
   return passed;
 }

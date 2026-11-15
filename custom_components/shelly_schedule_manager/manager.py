@@ -216,11 +216,17 @@ class ScheduleManager:
             self.notify()
 
     async def edit(self, job_id, changes):
-        if set(changes) - {"time", "weekdays", "enabled", "name"}:
+        if set(changes) - {"time", "weekdays", "enabled", "name", "switch_id", "on"}:
             raise HomeAssistantError("Unsupported editable field")
         async with self._lock:
             self.editable()
             job = deepcopy(self.jobs[job_id])
+            job.check_editable()
+            if "switch_id" in changes or "on" in changes:
+                output = job.switch_output
+                if output is None:
+                    raise HomeAssistantError("Output editing requires a single Switch.Set action; edit custom actions on Shelly")
+                job.set_output(changes.get("switch_id", output["id"]), changes.get("on", output["on"]))
             if "time" in changes:
                 try:
                     chosen = time.fromisoformat(changes["time"])
@@ -265,7 +271,7 @@ class ScheduleManager:
                 if j.operation != "delete":
                     # Unchanged custom actions on existing jobs need no reinterpretation.
                     if j.operation == "create" or j.calls != j.baseline["calls"]:
-                        self.capabilities.validate([j.raw()], creates=True)
+                        self.capabilities.validate([j.raw()], creates=j.operation == "create", action_changes=True)
         return remote
 
     async def preview(self):
@@ -417,7 +423,7 @@ class ScheduleManager:
             for raw in incoming:
                 current = self.jobs.get(raw["id"]) if replace else None
                 if current is None or current.calls != raw["calls"]:
-                    self.capabilities.validate([raw], creates=True)
+                    self.capabilities.validate([raw], creates=current is None, action_changes=True)
             final_count = len(incoming) if replace else len(self.configuration()["jobs"]) + len(incoming)
             if final_count > self.capabilities.capacity:
                 raise HomeAssistantError("Schedule capacity exceeded; nothing staged")

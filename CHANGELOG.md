@@ -2,6 +2,7 @@
 
 ## 0.7.0 — prepared, not published
 
+- Edit an existing single-`Switch.Set` job's target output and ON/OFF action in the management editor, with staged changes, capability/conflict checks and verified Save; preserve ancillary parameters and custom/multiple-call jobs.
 - Keep backup and restore controls inside the management workspace; simplify the main action row to Load and Review & Save.
 - Default new schedules to all seven days and simplify both card languages by removing the editing hint, storage footer and documented-limit note.
 - Show current device-assigned schedules instead of stale registered helpers, including empty devices and disabled jobs; estimate card height from the displayed schedule count.

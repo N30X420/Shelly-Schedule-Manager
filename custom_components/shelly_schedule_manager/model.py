@@ -122,6 +122,24 @@ class Job:
         self.enabled = value
 
     @property
+    def switch_output(self):
+        if len(self.calls) != 1 or self.calls[0].get("method", "").lower() != "switch.set":
+            return None
+        params = self.calls[0].get("params", {})
+        if type(params.get("id")) is not int or params["id"] < 0 or type(params.get("on")) is not bool:
+            return None
+        return {"id": params["id"], "on": params["on"]}
+
+    def set_output(self, switch_id, on):
+        self.check_editable()
+        if self.switch_output is None:
+            raise HomeAssistantError("Output editing requires a single Switch.Set action; edit custom actions on Shelly")
+        if type(switch_id) is not int or switch_id < 0 or type(on) is not bool:
+            raise HomeAssistantError("Output requires a nonnegative switch ID and a boolean ON/OFF state")
+        # Preserve every other RPC parameter (for example toggle_after and tag).
+        self.calls[0]["params"].update(id=switch_id, on=on)
+
+    @property
     def action(self):
         if len(self.calls) == 1 and self.calls[0].get("method", "").lower() == "switch.set":
             params = self.calls[0].get("params", {})

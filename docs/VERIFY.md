@@ -22,7 +22,7 @@ No npm packages are needed. The frontend runner imports the actual ES modules wi
 
 Python coverage includes staged create/update/delete/duplicate, capacity, unsupported components, conflicts, stale reviews, partial and uncertain Create responses, retained IDs/names, read-back failure/mismatch, manual diagnostics and categorized transport failures, secret redaction, immutable templates/history, channel mapping, rollback, retention and legacy migration, bulk partial failures, concurrency and action-schema validation. Module distribution, manifest ordering, translations and YAML are also checked.
 
-Local validation: 45 Python tests passed with installed requests/voluptuous/PyYAML. Shared frontend cases passed under V8, and the native Node test runner passed using VS Code's embedded Node runtime with real ES-module imports. Python compilation, JavaScript syntax, and JSON/YAML checks passed. Docker and Home Assistant were not installed locally, so full hassfest/HACS actions and a live HA instance were not run. Those are explicit release gates, not claimed successes.
+Local validation: 52 Python tests passed with installed requests/voluptuous/PyYAML. Shared frontend cases passed under V8, and the native Node test runner passed using VS Code's embedded Node runtime with real ES-module imports. Python compilation, JavaScript syntax, and JSON/YAML checks passed. Docker and Home Assistant were not installed locally, so full hassfest/HACS actions and a live HA instance were not run. Those are explicit release gates, not claimed successes.
 
 GitHub Actions now runs Python 3.13 tests, Node 22 tests, hassfest and HACS validation. HACS continues to skip only the external `brands` check for custom-repository use. Default-catalog submission requires a Brands entry and removal of that skip.
 
@@ -35,6 +35,7 @@ Use two configured devices, including one with a different available switch-chan
 - [ ] Load each device and compare raw Schedule.List output. Include fixed-time, sunrise/sunset, date-limited and multiple-call jobs; confirm advanced jobs remain unchanged.
 - [ ] Stage ordinary edits, a new switch job, a duplicate and a deletion. Confirm no device write occurs before Save, negative IDs stay local, and the preview lists every intended operation.
 - [ ] Save and inspect actual Schedule.List results. Confirm newly assigned IDs and name mappings, deletion verification, unchanged unrelated calls, and the history snapshot.
+- [ ] Edit an existing single-switch job's output ID and ON/OFF action in the management editor. Confirm that staging makes no RPC call, invalid outputs fail preview, `toggle_after`/`tag` survive Save, and custom/multiple-call schedules expose no output editor.
 - [ ] Fill near the 20-job limit and test appending a template; test a deliberate delete/create plan at capacity. Confirm excess creates are blocked before writes.
 - [ ] Modify an edited job directly on Shelly after Load and after preview. Confirm conflicts prevent writes and require reload/review.
 - [ ] Interrupt a multi-job save and a Create response. Confirm actual device state can be loaded, assigned IDs remain where known, and uncertain Create is never blindly retried, including after an HA restart.

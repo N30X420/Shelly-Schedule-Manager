@@ -2,6 +2,13 @@ import {renderTimeline} from './timeline.js';
 
 const trFor=card=>(english,dutch)=>card.constructor.cardType.endsWith('-nl')?dutch:english;
 
+function switchOutput(job) {
+  const call=job.calls?.length===1?job.calls[0]:null;
+  const params=call?.params;
+  return call?.method?.toLowerCase()==='switch.set' && Number.isInteger(params?.id) && params.id>=0 && typeof params?.on==='boolean'
+    ?{switch_id:params.id,on:params.on}:null;
+}
+
 export async function openWorkspace(card) {
   if(card._config?.management===false) return;
   card._managerOpen=true;
@@ -85,7 +92,7 @@ export function renderManagerPanel(card,container,chosen) {
   const entry_id=device.entry_id;
   const run=(action,data={})=>command(card,action,{entry_id,...data});
   const show=object=>el('pre',{text:JSON.stringify(object,null,2)});
-  const edit=id=>{const job=device.jobs.find(j=>j.id===id);card._managerEditor={id,name:job.name,time:/^\d+ \d+ \d+ /.test(job.timespec)?job.timespec.split(' ').slice(0,3).reverse().map(v=>v.padStart(2,'0')).join(':'):'',weekdays:job.timespec.split(' ')[5] || '',enabled:job.enable};card._render();};
+  const edit=id=>{const job=device.jobs.find(j=>j.id===id);card._managerEditor={id,name:job.name,time:/^\d+ \d+ \d+ /.test(job.timespec)?job.timespec.split(' ').slice(0,3).reverse().map(v=>v.padStart(2,'0')).join(':'):'',weekdays:job.timespec.split(' ')[5] || '',enabled:job.enable,...switchOutput(job)};card._render();};
   box.append(el('h3',{text:device.title}));
   box.append(el('p',{className:'status',text:`${device.jobs.filter(j=>!j.deleted).length}/${device.capabilities.capacity} ${tr('schedule slots','schemaplaatsen')}`}));
   if(device.recovery_required) box.append(el('p',{className:'alert error',text:tr('Uncertain previous write. Load from Shelly before continuing.','Onzekere vorige schrijfactie. Laad van Shelly voordat je doorgaat.')}));
@@ -114,9 +121,11 @@ export function renderManagerPanel(card,container,chosen) {
     input('name',tr('Name','Naam'));
     input('time',tr('Time (leave blank to preserve advanced rule)','Tijd (laat leeg om geavanceerde regel te behouden)'),'time');
     input('weekdays',tr('Weekdays: 0=Sun … 6=Sat (leave * or advanced unchanged)','Weekdagen: 0=zo … 6=za (laat * of geavanceerd ongewijzigd)'));
-    if(draft.id===undefined) {
+    if(draft.id===undefined || draft.switch_id!==undefined) {
       input('switch_id',tr('Target switch ID','Doelschakelaar-ID'),'number');
       form.append(el('label',{},el('input',{type:'checkbox',checked:draft.on,onchange:ev=>{draft.on=ev.target.checked;}}),el('span',{text:tr('ON action (unchecked = OFF)','AAN-actie (uitgevinkt = UIT)')})));
+    } else {
+      form.append(el('p',{className:'status',text:tr('Custom or multiple RPC actions: edit the output on Shelly.','Aangepaste of meerdere RPC-acties: bewerk de uitgang op Shelly.')}));
     }
     form.append(el('label',{},el('input',{type:'checkbox',checked:draft.enabled,onchange:ev=>{draft.enabled=ev.target.checked;}}),el('span',{text:tr('Enabled','Ingeschakeld')})));
     form.append(button(tr('Stage locally','Lokaal klaarzetten'),async()=>{
@@ -125,6 +134,11 @@ export function renderManagerPanel(card,container,chosen) {
       else {
         const current=device.jobs.find(j=>j.id===draft.id),changes={enabled:draft.enabled};
         if(draft.name!==current.name) changes.name=draft.name;
+        const output=switchOutput(current);
+        if(output) {
+          if(draft.switch_id!==output.switch_id) changes.switch_id=draft.switch_id;
+          if(draft.on!==output.on) changes.on=draft.on;
+        }
         if(draft.time) changes.time=draft.time;
         if(draft.weekdays!==(current.timespec.split(' ')[5] || '')) changes.weekdays=draft.weekdays;
         result=await run('edit',{job_id:draft.id,changes});

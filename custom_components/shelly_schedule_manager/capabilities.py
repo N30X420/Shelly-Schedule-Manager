@@ -12,7 +12,7 @@ class Capabilities:
     switches: set = field(default_factory=set)
     capacity: int = 20  # Shelly Schedule API's documented limit, not a discovered field.
 
-    def validate(self, jobs, creates=False):
+    def validate(self, jobs, creates=False, action_changes=False):
         if len(jobs) > self.capacity:
             raise HomeAssistantError(f"Schedule capacity exceeded ({self.capacity})")
         if creates and "Schedule.Create" not in self.methods:
@@ -28,7 +28,7 @@ class Capabilities:
                         raise HomeAssistantError("Target switch component is not available; supply a channel mapping")
                     if type(params.get("on")) is not bool:
                         raise HomeAssistantError("Switch.Set requires a boolean on parameter")
-                elif creates:
+                elif creates or action_changes:
                     # Method availability alone cannot validate component-specific parameters.
                     raise HomeAssistantError("Cloning/creating custom RPC actions is unsupported; existing actions are preserved")
 

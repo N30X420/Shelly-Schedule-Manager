@@ -15,6 +15,7 @@ A custom Home Assistant integration for viewing and editing schedules on Shelly 
 - Optionally use the included Lovelace card to manage schedules from a dashboard.
 - Read schedules once when the integration starts; no periodic polling of the Shelly device.
 - Create, duplicate, and delete jobs through the card's **Manage schedules / Timeline** workspace.
+- Change an existing single-`Switch.Set` job's output ID and ON/OFF action through **Edit** in the management workspace, then preview and confirm Save.
 - Save individual jobs or device schedule sets as named templates; preview and stage copies to other devices with switch-channel mapping.
 - Inspect a weekly or daily timeline grouped by switch channel, including disabled events and advanced-rule fallbacks.
 - Preview bulk template/clone/enable/disable operations, explicitly confirm writes, and follow per-device progress (at most two devices execute concurrently).
@@ -142,7 +143,7 @@ Inside the workspace, **Weekly timeline** is a separate collapsible section, ini
 
 When there are pending changes, Save reads `Schedule.List`, checks edited/deleted jobs against the baseline, and discovers device identity, methods and switch components. If any edited job conflicts, the save stops before writing anything. A deterministic plan deletes first to free capacity, updates existing jobs, then creates new ones without supplying IDs. Save reads `Schedule.List` again to verify the final state. Previews are invalidated by local edits or a changed loaded configuration.
 
-A job is marked saved only when its returned `timespec`, `enable`, and unchanged `calls` match the intended state. If some jobs fail verification, successfully verified jobs are marked saved and the others remain unsaved. If updates are interrupted or the verification read fails, changes remain marked unsaved even though the device may have applied them. Load from Shelly to inspect the actual device state before retrying; this discards local edits.
+A job is marked saved only when its returned `timespec`, `enable`, and `calls` match the intended configuration. Output edits change only the selected switch ID and ON/OFF value; other RPC parameters are preserved. If some jobs fail verification, successfully verified jobs are marked saved and the others remain unsaved. If updates are interrupted or the verification read fails, changes remain marked unsaved even though the device may have applied them. Load from Shelly to inspect the actual device state before retrying; this discards local edits.
 
 Assigned IDs and names are retained after successful Create responses, even if a later operation fails. An uncertain Create response is never retried automatically: a durable recovery marker blocks further saves until an explicit Load. Multi-job and multi-device saves are not atomic. Device identity changes also block writes until the device is reconfigured.
 

@@ -10,7 +10,7 @@ Set `management: false` in the card YAML to hide the advanced workspace and its 
 2. **Create job** opens the local editor: enter a name, device-local time, numeric weekdays (`0` Sunday through `6` Saturday), switch component ID, ON/OFF action and enabled state. New jobs default to every day (`0,1,2,3,4,5,6`); at least one weekday is required.
 3. **Stage locally** adds the job with a negative temporary identifier. It sends no write to Shelly. The target component and capacity are verified during preview.
 4. **Duplicate** copies the selected job's time, enabled state and calls into a new local job. Supply its name when prompted. Duplicating arbitrary non-switch actions is rejected during preview because their target parameters cannot be safely validated.
-5. **Edit** changes time, weekdays, enabled state or local name. Leave an advanced time blank and its weekday expression unchanged to preserve it.
+5. **Edit** changes time, weekdays, enabled state or local name. For jobs with one valid `Switch.Set` call it also shows **Target switch ID** and **ON action** (unchecked means OFF). These output controls are available only inside the management editor, including when editing a newly staged job. Changes are local until preview and confirmed Save; the target output must exist on the device. Other parameters, such as `toggle_after` and `tag`, are preserved. Custom/multiple-call jobs show a read-only output explanation rather than converting their actions. Leave an advanced time blank and its weekday expression unchanged to preserve it.
 6. **Delete** displays the device, name, ID, timespec and calls before staging deletion. Deleting a temporary job simply cancels its creation.
 7. Press **Preview & Save all changes**. Review the complete list, including creates and deletes, then **Confirm Save to Shelly**. A final confirmation authorizes writes. If you edit after preview, preview again.
 
@@ -76,6 +76,8 @@ response_variable: proposed
 ```
 
 After inspecting `proposed.changes`, a separate call to `save` requires that response's `review_id`, the same `entry_id`, and `confirmed: true`. Changed local state invalidates the review ID. Avoid automations that automatically bypass human review of structural changes.
+
+The administrator `edit` action accepts `changes.switch_id` (nonnegative integer) and `changes.on` (boolean) for a single-`Switch.Set` schedule. These fields stage an output edit and require the management preview/Save workflow; ordinary helper Save cannot apply action changes without review.
 
 Supported actions: `status`, `load`, `backup`, `restore`, `preview`, `save`, `create`, `edit`, `duplicate`, `delete`, `template_save`, `template_rename`, `template_delete`, `application_preview`, `application_stage`, `history_diff`, `history_delete`, `retention`, `test_connection`, `diagnostics`, `bulk_preview`, `bulk_start`. Exact field schemas are in `services.py`; none accepts an arbitrary RPC method/host.
 
