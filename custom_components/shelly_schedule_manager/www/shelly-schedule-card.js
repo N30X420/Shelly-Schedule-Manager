@@ -6,6 +6,7 @@ export class ShellyScheduleCard extends HTMLElement {
   get _strings() {
     return {
       useType: 'Use type: custom:{type}',
+      managementConfig: 'management must be a boolean: true or false',
       completed: '{operation} completed.',
       failed: '{operation} failed: {error}. Check the device connection and Home Assistant notifications.',
       noDevices: 'No Shelly Schedule Manager devices found. Add a device through Settings → Devices & services, then refresh the dashboard.',
@@ -71,7 +72,17 @@ export class ShellyScheduleCard extends HTMLElement {
     if (!config || config.type !== `custom:${this.constructor.cardType}`) {
       throw new Error(this._t('useType', {type: this.constructor.cardType}));
     }
-    this._config = config;
+    if(config.management!==undefined && typeof config.management!=='boolean') {
+      throw new Error(this._t('managementConfig'));
+    }
+    this._config = {...config, management:config.management ?? true};
+    if(!this._config.management) {
+      closeWorkspace(this);
+      this._managerOpen=false;
+      this._workspace=null;
+      this._managerResult=null;
+      this._managerEditor=null;
+    }
     this._selected = config.device_id || '';
     this._lastSignature = '';
     this._render();

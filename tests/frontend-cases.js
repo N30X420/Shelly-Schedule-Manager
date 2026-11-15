@@ -45,7 +45,14 @@ export async function runFrontendTests({timelineEvents,classes}) {
     card._getDevices=()=>[{id:'device',name:'Keuken',items:[]}];
     card._managerOpen=true;card._workspace=workspace;
     card._render();
+    same(card._config.management,true,'Management stays enabled by default');
     assert(text(card.shadowRoot).includes(dutch?'Wekelijkse tijdlijn':'Weekly timeline'),'Timeline rendered');
+    const timelineSection=()=>flatten(card.shadowRoot).find(e=>e.tagName==='DETAILS'&&e.className==='timeline-section');
+    assert(timelineSection() && !timelineSection().open,'Timeline starts in a collapsed details container');
+    timelineSection().open=true;timelineSection().events.toggle();card._render();
+    assert(timelineSection().open,'Expanded timeline persists across renders');
+    timelineSection().open=false;timelineSection().events.toggle();card._render();
+    assert(!timelineSection().open,'Collapsed timeline persists across renders');
     assert(text(card.shadowRoot).includes(dutch?'Meerdere apparaten beheren':'Bulk Management'),'Bulk controls rendered');
     const editor=flatten(card.shadowRoot).find(e=>e.tagName==='BUTTON'&&e.textContent===(dutch?'Bewerken':'Edit'));
     editor.click();
@@ -71,9 +78,33 @@ export async function runFrontendTests({timelineEvents,classes}) {
     await stage.click();
     const create=calls.find(call=>call.action==='create');
     same(create.data,{entry_id:'entry',name:'New',time:'10:30:00',weekdays:'1,2',switch_id:0,on:false,enabled:true},'Create form stages structured values');
-    let unsubscribed=false;card._workspaceUnsubscribe=()=>{unsubscribed=true;};card.disconnectedCallback();
+    let unsubscribed=false;card._workspaceUnsubscribe=()=>{unsubscribed=true;};
+    const beforeHide=calls.length;
+    card.setConfig({type:`custom:${Card.cardType}`,management:false});
+    assert(unsubscribed,'Disabling management unsubscribes the open workspace');
+    assert(!flatten(card.shadowRoot).some(e=>e.className==='management'),'Disabled management has no button or workspace');
+    assert(!card._managerOpen && card._workspace===null && card._managerEditor===null,'Disabling clears visible workspace state');
+    confirmSave.click();for(let n=0;n<8;n++)await Promise.resolve();
+    same(calls.length,beforeHide,'Stale management controls cannot issue commands after disabling');
+    card.setConfig({type:`custom:${Card.cardType}`,management:true});
+    assert(flatten(card.shadowRoot).some(e=>e.className==='management'),'Management can be explicitly re-enabled');
+    for(const value of ['false','true',0,1,null]) {
+      let rejected=false;try{card.setConfig({type:`custom:${Card.cardType}`,management:value});}catch{rejected=true;}
+      assert(rejected,`Invalid management value rejected: ${value}`);
+    }
+    let receive,finish,pendingUnsubscribed=false;
+    card._hass.connection={subscribeMessage:callback=>{receive=callback;return new Promise(resolve=>{finish=resolve;});}};
+    const openButton=flatten(card.shadowRoot).find(e=>e.tagName==='BUTTON'&&e.textContent===(dutch?'Schema’s beheren / Tijdlijn':'Manage schedules / Timeline'));
+    openButton.click();
+    card.setConfig({type:`custom:${Card.cardType}`,management:false});
+    receive(workspace);
+    assert(card._workspace===null,'Late workspace messages are ignored when management is hidden');
+    finish(()=>{pendingUnsubscribed=true;});for(let n=0;n<8;n++)await Promise.resolve();
+    assert(pendingUnsubscribed && !card._workspaceUnsubscribe,'Pending subscriptions are cleaned up when disabled');
+    unsubscribed=false;card._workspaceUnsubscribe=()=>{unsubscribed=true;};card.disconnectedCallback();
     assert(unsubscribed,'Workspace unsubscribes when card is removed');
     passed.push(`${dutch?'Dutch':'English'} workspace, editor, previews and safe text rendering`);
+    passed.push(`${dutch?'Dutch':'English'} management visibility, subscription cleanup and collapsible timeline`);
   }
   return passed;
 }

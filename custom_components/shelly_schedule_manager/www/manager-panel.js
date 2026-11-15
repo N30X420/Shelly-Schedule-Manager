@@ -3,15 +3,17 @@ import {renderTimeline} from './timeline.js';
 const trFor=card=>(english,dutch)=>card.constructor.cardType.endsWith('-nl')?dutch:english;
 
 export async function openWorkspace(card) {
+  if(card._config?.management===false) return;
   card._managerOpen=true;
   if(card._workspaceUnsubscribe || card._workspaceConnecting) {card._render();return;}
   card._workspaceConnecting=true;
   try {
     const unsubscribe=await card._hass.connection.subscribeMessage(data=>{
+      if(card._config?.management===false) return;
       card._workspace=data;
       if(card.shadowRoot.activeElement?.tagName!=='INPUT') card._render();
     }, {type:'shelly_schedule_manager/subscribe'});
-    if(card._managerDisconnected) unsubscribe(); else card._workspaceUnsubscribe=unsubscribe;
+    if(card._managerDisconnected || card._config?.management===false) unsubscribe(); else card._workspaceUnsubscribe=unsubscribe;
   } catch(error) {
     card._toast(String(error?.message || error),'error');
   } finally {card._workspaceConnecting=false;card._render();}
@@ -23,7 +25,7 @@ export function closeWorkspace(card) {
 }
 
 async function command(card,action,data={}) {
-  if(card._managerBusy) return;
+  if(card._managerBusy || card._config?.management===false) return;
   card._managerBusy=true;card._render();
   try {
     const result=await card._hass.callWS({type:'shelly_schedule_manager/manage',action,data});
@@ -45,6 +47,7 @@ function download(data,filename) {
 }
 
 export function renderManagerPanel(card,container,chosen) {
+  if(card._config?.management===false) return;
   const tr=trFor(card),el=card._el.bind(card);
   const button=(text,onclick,danger=false)=>el('button',{text,disabled:card._managerBusy || card._busy,className:danger?'danger':'',onclick});
   container.append(el('style',{text:`
@@ -129,7 +132,12 @@ export function renderManagerPanel(card,container,chosen) {
       if(result!==null) {card._managerEditor=null;card._render();}
     }),button(tr('Cancel','Annuleren'),()=>{card._managerEditor=null;card._render();}));box.append(form);
   }
-  renderTimeline(card,box,device,edit,tr);
+  const timeline=el('details',{className:'timeline-section'});
+  timeline.open=!!card._timelineOpen;
+  timeline.addEventListener('toggle',()=>{card._timelineOpen=timeline.open;});
+  timeline.append(el('summary',{text:tr('Weekly timeline','Wekelijkse tijdlijn')}));
+  renderTimeline(card,timeline,device,edit,tr);
+  box.append(timeline);
 
   const templates=el('details');
   // Boolean details.open is set explicitly; preserve expanded sections across pushes.

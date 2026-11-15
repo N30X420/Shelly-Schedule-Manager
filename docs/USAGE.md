@@ -2,6 +2,8 @@
 
 Use either the English or Dutch card resource documented in the README. Sign in as a Home Assistant administrator and open **Manage schedules / Timeline**. Select the configured device inside this workspace and check its title before acting. Existing helper controls and the ordinary time/weekday review remain available above it.
 
+Set `management: false` in the card YAML to hide the advanced workspace and its entry button on an everyday dashboard. Use `management: true` on a maintenance card; the default is `true` for backward compatibility. The setting applies to both languages and accepts only YAML booleans, not quoted strings. It controls this card's presentation, while Home Assistant continues to enforce permissions. Existing basic editing, load/save and backup controls remain available. Disabling the workspace closes its subscription without discarding staged backend changes.
+
 ## Create, duplicate, edit and delete
 
 1. Load schedules if the local editor is stale. Load discards pending local changes.
@@ -29,6 +31,8 @@ Open **Templates and copying**:
 Cloning never copies device credentials or reuses source IDs. Creating/cloning custom non-`Switch.Set` actions is intentionally unsupported: knowing that a method exists is insufficient to validate its component-specific parameters. Existing custom actions are preserved.
 
 ## Timeline
+
+Expand **Weekly timeline** (**Wekelijkse tijdlijn** in Dutch) inside the workspace. It starts collapsed and remembers its expanded state across card updates, keeping the management view compact.
 
 The axis runs from 00:00 to 24:00 in the device's local timezone. Use day/week controls, select a day, or click its heading to focus it. Events are grouped by switch component and show ON/OFF symbols as well as colors. Toggle disabled schedules; disabled events have a dashed style and explicit label. Hover or focus an event for its device/day/channel/name/time details. Click its marker or caption to open the editor.
 

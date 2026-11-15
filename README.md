@@ -124,6 +124,18 @@ Press **Review & Save** to see pending changes to times, weekdays, and enabled s
 
 Open **Manage schedules / Timeline** (**Schema’s beheren / Tijdlijn** in Dutch) for the new features. Confirm the configured device selected inside this workspace. Stage creates, duplicates, deletes or restored settings, then press **Preview & Save all changes** and inspect the complete operation list before **Confirm Save to Shelly**. The timeline and per-device bulk progress update through authenticated Home Assistant push messages; they do not poll Shelly. Template application and copying have a separate preview and local staging step before Save. See [the workspace guide](docs/USAGE.md).
 
+To keep the everyday dashboard simpler, hide the management button and its workspace with `management: false`:
+
+```yaml
+type: custom:shelly-schedule-card
+title: Shelly schedules
+management: false
+```
+
+This option works with the Dutch card too. Set `management: true` on a separate maintenance card to show the workspace. The default is `true` for existing dashboards. Use YAML booleans without quotes; strings such as `"false"` are rejected. This controls visibility of the advanced workspace; ordinary schedule controls and Home Assistant permissions still apply.
+
+Inside the workspace, **Weekly timeline** is a separate collapsible section, initially closed. Its expanded/collapsed state is preserved while the card updates; opening it shows the day/week controls and chart.
+
 ## Save verification
 
 When there are pending changes, Save reads `Schedule.List`, checks edited/deleted jobs against the baseline, and discovers device identity, methods and switch components. If any edited job conflicts, the save stops before writing anything. A deterministic plan deletes first to free capacity, updates existing jobs, then creates new ones without supplying IDs. Save reads `Schedule.List` again to verify the final state. Previews are invalidated by local edits or a changed loaded configuration.
