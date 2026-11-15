@@ -37,7 +37,7 @@ export function renderTimeline(card, container, device, edit, tr) {
   day.value=String(card._timelineDay);
   const disabled = el('input',{type:'checkbox',checked:card._timelineDisabled,onchange:ev=>{card._timelineDisabled=ev.target.checked;card._render();}});
   controls.append(view,day,el('label',{},disabled,el('span',{text:tr(' Show disabled schedules',' Uitgeschakelde schema’s tonen')})));
-  container.append(el('h3',{text:tr('Weekly timeline','Wekelijkse tijdlijn')}),el('p',{className:'status',text:`${device.title} · ${tr('Device-local time; events only, no inferred active intervals.','Lokale apparaattijd; alleen gebeurtenissen, geen afgeleide actieve intervallen.')}`}),controls);
+  container.append(el('p',{className:'status',text:`${device.title} · ${tr('Device-local time; events only, no inferred active intervals.','Lokale apparaattijd; alleen gebeurtenissen, geen afgeleide actieve intervallen.')}`}),controls);
   const {events,fallback}=timelineEvents(device.jobs,card._timelineDisabled);
   const axis = el('div',{className:'timeline-axis'});
   for (const hour of [0,6,12,18,24]) axis.append(el('span',{text:`${String(hour).padStart(2,'0')}:00`}));

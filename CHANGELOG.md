@@ -2,6 +2,7 @@
 
 ## 0.7.0 — prepared, not published
 
+- Add the boolean `management` card option (default `true`) to hide the advanced workspace on everyday dashboards, and put the weekly timeline in its own initially collapsed section.
 - Add locally staged create, duplicate and delete operations with temporary IDs, capacity checks, device identity checks, deterministic saves, and read-back verification.
 - Persist a recovery journal before non-idempotent Create calls. Preserve returned IDs after partial completion and block uncertain retries until explicit Load.
 - Add persistent single-job and schedule-set templates, rename/delete controls, previewed application, switch mapping and device-to-device copying.

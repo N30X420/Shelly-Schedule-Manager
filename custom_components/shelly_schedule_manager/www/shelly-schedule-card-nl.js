@@ -7,6 +7,7 @@ class ShellyScheduleCardNL extends ShellyScheduleCard {
   get _strings() {
     return {
       useType: 'Gebruik type: custom:{type}',
+      managementConfig: 'management moet een boolean zijn: true of false',
       completed: '{operation} voltooid.',
       failed: '{operation} mislukt: {error}. Controleer de verbinding met het apparaat en de Home Assistant-meldingen.',
       noDevices: 'Geen Shelly Schedule Manager-apparaten gevonden. Voeg een apparaat toe via Instellingen → Apparaten & diensten en vernieuw het dashboard.',
