@@ -10,7 +10,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
     known = set()
 
     def add_jobs():
-        fresh = sorted(set(manager.jobs) - known)
+        fresh = sorted(key for key in set(manager.jobs) - known if key >= 0)
         if fresh:
             known.update(fresh)
             async_add_entities([ScheduleEnabled(entry, manager, job_id) for job_id in fresh])
@@ -28,7 +28,8 @@ class ScheduleEnabled(ScheduleEntity, SwitchEntity):
 
     @property
     def available(self):
-        return self.job_id in self.manager.jobs
+        job = self.manager.jobs.get(self.job_id)
+        return job is not None and not job.deleted
 
     @property
     def is_on(self):
@@ -41,14 +42,13 @@ class ScheduleEnabled(ScheduleEntity, SwitchEntity):
         return {"action": job.action, "unsaved_changes": job.dirty, "saved_enabled": job.original_enabled} if job else {}
 
     async def async_turn_on(self, **kwargs):
-        self._set(True)
+        await self._set(True)
 
     async def async_turn_off(self, **kwargs):
-        self._set(False)
+        await self._set(False)
 
-    def _set(self, enabled):
+    async def _set(self, enabled):
         job = self.manager.jobs.get(self.job_id)
         if job is None:
             raise HomeAssistantError("Job no longer exists. Load from Shelly again.")
-        job.set_enabled(enabled)
-        self.manager.notify()
+        await self.manager.edit(self.job_id, {"enabled": enabled})
