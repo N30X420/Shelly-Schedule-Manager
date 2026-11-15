@@ -1,0 +1,23 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Een Shelly-apparaat voor schema's toevoegen",
+        "description": "Voer het adres van het Shelly Gen2/Gen3-apparaat en de lokale RPC-inloggegevens in.",
+        "data": {
+          "name": "Apparaatnaam",
+          "host": "IP-adres of hostnaam",
+          "username": "Gebruikersnaam",
+          "password": "Wachtwoord"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Kan geen verbinding maken met de Shelly Schedule API of de inloggegevens zijn onjuist.",
+      "invalid_host": "Voer een geldige hostnaam of een geldig IP-adres in."
+    },
+    "abort": {
+      "already_configured": "Deze host is al geconfigureerd."
+    }
+  }
+}

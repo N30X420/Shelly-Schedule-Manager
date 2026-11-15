@@ -14,14 +14,15 @@ from .manager import ScheduleManager
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-    """Serve the bundled card once, independently of device entry lifecycles."""
+    """Serve both card languages once, independently of device entry lifecycles."""
     await hass.http.async_register_static_paths(
         [
             StaticPathConfig(
-                f"/{DOMAIN}/shelly-schedule-card.js",
-                str(Path(__file__).parent / "www" / "shelly-schedule-card.js"),
+                f"/{DOMAIN}/{filename}",
+                str(Path(__file__).parent / "www" / filename),
                 cache_headers=False,
             )
+            for filename in ("shelly-schedule-card.js", "shelly-schedule-card-nl.js")
         ]
     )
     return True

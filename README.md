@@ -71,10 +71,17 @@ These entities can be used directly in Home Assistant even if you do not install
 
 ## Optional Lovelace card
 
-The card is included at `custom_components/shelly_schedule_manager/www/shelly-schedule-card.js`, so both HACS and manual integration installations include it. The integration serves the file directly at `/shelly_schedule_manager/shelly-schedule-card.js` once it is set up. It does not copy files into `/config/www/community` or use `/hacsfiles`.
+Both card languages are bundled in `custom_components/shelly_schedule_manager/www/`, so HACS and manual integration installations include them. The integration serves them directly once it is set up.
+
+| Language | JavaScript module resource | Card type |
+| --- | --- | --- |
+| English | `/shelly_schedule_manager/shelly-schedule-card.js` | `custom:shelly-schedule-card` |
+| Dutch | `/shelly_schedule_manager/shelly-schedule-card-nl.js` | `custom:shelly-schedule-card-nl` |
+
+Choose the resource and matching card type for your preferred language. The Dutch module imports the shared card code automatically; you only need to add the Dutch resource to use it. Both types can also be used on the same dashboard. Card language is independent of your Home Assistant profile language. Custom device and schedule names are preserved, and error details returned by the integration may still be in English.
 
 1. Install or update the integration, restart Home Assistant, and configure at least one Shelly Schedule Manager device.
-2. In **Settings → Dashboards → Resources**, add `/shelly_schedule_manager/shelly-schedule-card.js` as a **JavaScript module**. Enable **Advanced mode** in your Home Assistant profile if the Resources menu is hidden. For YAML-managed resources, use this under `lovelace:` in `configuration.yaml`:
+2. In **Settings → Dashboards → Resources**, add the English or Dutch resource URL from the table as a **JavaScript module**. Enable **Advanced mode** in your Home Assistant profile if the Resources menu is hidden. For YAML-managed resources, the English example is:
 
    ```yaml
    lovelace:
@@ -91,11 +98,18 @@ The card is included at `custom_components/shelly_schedule_manager/www/shelly-sc
    title: Shelly schedules
    ```
 
+   For Dutch, load the Dutch resource and use:
+
+   ```yaml
+   type: custom:shelly-schedule-card-nl
+   title: Shelly-schema’s
+   ```
+
 The card lists configured Shelly Schedule Manager devices and lets you select which device to manage. Edit each schedule's local name, time, enabled state, and **Repeat** weekday buttons. Names are saved in Home Assistant immediately and are independent of staged schedule changes.
 
 HACS updates the bundled card with the integration. Restart Home Assistant after updating and refresh the dashboard. The resource is served without Home Assistant's long-lived static cache headers.
 
-If upgrading from the separate card installation, replace the old `/local/shelly-schedule-card.js` resource with `/shelly_schedule_manager/shelly-schedule-card.js`; keep only one resource for this card. The old copy in `/config/www` is no longer needed. If the new URL returns 404, check that the bundled file exists, restart Home Assistant, and check the integration setup logs.
+If upgrading from the separate card installation, replace the old `/local/shelly-schedule-card.js` resource with your chosen resource URL above. The old copy in `/config/www` is no longer needed. When switching languages, also update the card type; a custom title remains as you entered it. If the new URL returns 404, check that the bundled file exists, restart Home Assistant, and check the integration setup logs.
 
 Press **Review & Save** to see pending changes to times, weekdays, and enabled states, then **Confirm Save to Shelly** to apply them to the selected device. Cancel closes the review and keeps your staged edits. Loading while schedule changes are pending asks for confirmation. Card messages show operation success or failure.
 
@@ -127,7 +141,7 @@ The integration connects to the device's local RPC endpoint over HTTP and uses H
 
 The integration lives in `custom_components/shelly_schedule_manager`; `hacs.json` at the repository root supplies its HACS metadata. GitHub Actions runs HACS validation and Home Assistant's hassfest on pushes and pull requests, and can also be run manually.
 
-For a release, update the integration manifest's version and publish a matching GitHub release (for example, manifest version `0.6.2` and tag `v0.6.2`). No ZIP asset is required: HACS downloads the integration directory, including the bundled card, from the selected ref. The selected branch or release must contain the HACS layout; older releases with the previous layout are not compatible.
+For a release, update the integration manifest's version and publish a matching GitHub release (for example, manifest version `0.6.3` and tag `v0.6.3`). No ZIP asset is required: HACS downloads the integration directory, including both card languages, from the selected ref. The selected branch or release must contain the HACS layout; older releases with the previous layout are not compatible.
 
 HACS validation skips only the external Home Assistant Brands check for custom-repository use. Inclusion in the default HACS catalog is a separate submission and requires a Home Assistant Brands entry and all validation checks to pass. Before submitting, remove `ignore: brands` from the validation workflow. See the [HACS publishing requirements](https://www.hacs.dev/docs/publish/include/).
 

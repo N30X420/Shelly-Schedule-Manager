@@ -1,5 +1,51 @@
-/* Shelly Schedule Manager dashboard card v0.6.0. No external libraries or polling. */
-class ShellyScheduleCard extends HTMLElement {
+/* Shelly Schedule Manager dashboard card v0.6.3. No external libraries or polling. */
+export class ShellyScheduleCard extends HTMLElement {
+  static get cardType() { return 'shelly-schedule-card'; }
+
+  get _strings() {
+    return {
+      useType: 'Use type: custom:{type}',
+      completed: '{operation} completed.',
+      failed: '{operation} failed: {error}. Check the device connection and Home Assistant notifications.',
+      noDevices: 'No Shelly Schedule Manager devices found. Add a device through Settings → Devices & services, then refresh the dashboard.',
+      title: 'Shelly schedules', hint: 'Edit locally, then Save to Shelly', chooseDevice: 'Choose Shelly device',
+      working: 'Working…', loadButton: '↧ Load from Shelly', reviewButton: '↥ Review & Save',
+      loadConfirm: 'Load will discard unsaved changes for this device. Continue?',
+      load: 'Load', backup: 'Backup', restore: 'Stage restore', save: 'Save',
+      backupButton: '▣ Back up device', restoreButton: '↶ Stage restore',
+      backupConfirm: 'Replace the stored backup for this device with its current Shelly schedules? This reads from Shelly.',
+      restoreConfirm: 'Stage the stored backup into the schedule editor? Any currently unsaved edits will be replaced. Nothing is written to Shelly until Review & Save.',
+      reviewLabel: 'Review schedule changes', confirmOne: 'Confirm {count} schedule change', confirmMany: 'Confirm {count} schedule changes',
+      timeChange: 'time {before} → {after}', daysChange: 'weekdays {before} → {after}',
+      enabled: 'enabled', disabled: 'disabled', modified: 'Schedule modified', job: 'Job {id}',
+      saveWarning: 'Changes will be sent only to the selected Shelly. Existing RPC actions remain unchanged. A multi-job save is not atomic.',
+      cancel: 'Cancel', confirmSave: 'Confirm Save to Shelly', dismiss: 'Dismiss notification',
+      missingButtons: 'Load/Save button entities not found for this device. Check Settings → Devices & services → Shelly Schedule Manager → device → Entities; ensure both buttons are enabled.',
+      scheduleAction: 'Schedule / Action', time: 'Time', enabledHeading: 'Enabled',
+      unknownAction: 'Unknown action', customAction: 'Custom action', switchAction: 'Switch {id} {state}', on: 'ON', off: 'OFF',
+      nameLabel: 'Name for job {id}', renameTitle: 'Rename schedule {id} (stored locally in Home Assistant)', rename: 'Rename job {id}',
+      unsaved: ' · Unsaved schedule', timeLabel: 'Time for job {id}', timeUpdate: 'Update job {id} time locally',
+      enableLabel: 'Enable job {id}', enabledUpdate: 'Update job {id} enabled state locally',
+      repeat: 'Repeat', weekdays: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+      advanced: 'Advanced weekday rule: edit on Shelly (preserved on Save)',
+      dayLabel: '{day} job {id}', toggleDay: 'Toggle {day}', requiredDay: 'At least one weekday is required.', daysUpdate: 'Update job {id} weekdays locally',
+      noSchedules: 'No schedules found on this device. Press Load from Shelly.',
+      pending: '{count} schedule(s) have unsaved changes. Press Save to write them to the Shelly.',
+      footer: 'Names and backups are stored in Home Assistant. Saves verify the device and detect external changes. No periodic polling.',
+    };
+  }
+
+  _t(key, values = {}) {
+    return this._strings[key].replace(/\{(\w+)\}/g, (match, name) => String(values[name] ?? match));
+  }
+
+  _actionLabel(action) {
+    if (action === 'Unknown action') return this._t('unknownAction');
+    if (action === 'Custom action') return this._t('customAction');
+    const match = action.match(/^Switch (\d+) (ON|OFF)$/);
+    return match ? this._t('switchAction', {id: match[1], state: this._t(match[2] === 'ON' ? 'on' : 'off')}) : action;
+  }
+
   constructor() {
     super();
     this.attachShadow({mode: 'open'});
@@ -11,8 +57,8 @@ class ShellyScheduleCard extends HTMLElement {
   }
 
   setConfig(config) {
-    if (!config || config.type !== 'custom:shelly-schedule-card') {
-      throw new Error('Use type: custom:shelly-schedule-card');
+    if (!config || config.type !== `custom:${this.constructor.cardType}`) {
+      throw new Error(this._t('useType', {type: this.constructor.cardType}));
     }
     this._config = config;
     this._selected = config.device_id || '';
@@ -104,9 +150,9 @@ class ShellyScheduleCard extends HTMLElement {
     this._render();
     try {
       await this._hass.callService(domain, service, data);
-      this._toast(`${operation} completed.`, 'success');
+      this._toast(this._t('completed', {operation}), 'success');
     } catch (error) {
-      this._toast(`${operation} failed: ${error?.message || String(error)}. Check the device connection and Home Assistant notifications.`, 'error');
+      this._toast(this._t('failed', {operation, error: error?.message || String(error)}), 'error');
     } finally {
       this._busy = false;
       this._render();
@@ -152,14 +198,14 @@ class ShellyScheduleCard extends HTMLElement {
     const card = this._el('ha-card'); root.append(card);
     const devices = this._getDevices();
     if (!devices.length) {
-      card.append(this._el('div',{className:'heading',text:'Shelly Schedule Manager'}), this._el('p',{text:'No Shelly Schedule Manager devices found. Add a device through Settings → Devices & services, then refresh the dashboard.'}));
+      card.append(this._el('div',{className:'heading',text:'Shelly Schedule Manager'}), this._el('p',{text:this._t('noDevices')}));
       return;
     }
     if (!devices.some(d=>d.id===this._selected)) this._selected=devices[0].id;
     const chosen = devices.find(d=>d.id===this._selected);
     const header = this._el('div',{className:'header'});
-    header.append(this._el('div',{},this._el('div',{className:'heading',text:this._config.title || 'Shelly schedules'}),this._el('div',{className:'hint',text:'Edit locally, then Save to Shelly'})));
-    const selector = this._el('select',{ 'aria-label':'Choose Shelly device', disabled:this._busy, onchange:(ev)=>{this._selected=ev.target.value;this._notice=null;this._review=false;this._render();}});
+    header.append(this._el('div',{},this._el('div',{className:'heading',text:this._config.title || this._t('title')}),this._el('div',{className:'hint',text:this._t('hint')})));
+    const selector = this._el('select',{ 'aria-label':this._t('chooseDevice'), disabled:this._busy, onchange:(ev)=>{this._selected=ev.target.value;this._notice=null;this._review=false;this._render();}});
     devices.forEach(d => selector.append(this._el('option',{value:d.id,text:d.name})));
     selector.value=this._selected;
     header.append(selector);card.append(header);
@@ -167,23 +213,23 @@ class ShellyScheduleCard extends HTMLElement {
     const modified = rows.filter(r=>r.time?.attributes?.unsaved_changes || r.enabled?.attributes?.unsaved_changes || r.days?.attributes?.unsaved_changes);
     const pending = modified.length;
     const actions=this._el('div',{className:'actions'});
-    actions.append(this._el('button',{text:this._busy?'Working…':'↧ Load from Shelly',disabled:this._busy || !load || load.state==='unavailable',onclick:()=>{
-      if (pending && !confirm('Load will discard unsaved changes for this device. Continue?')) return;
-      this._review=false;this._call('button','press',{entity_id:load.entity_id},'Load');
+    actions.append(this._el('button',{text:this._t(this._busy?'working':'loadButton'),disabled:this._busy || !load || load.state==='unavailable',onclick:()=>{
+      if (pending && !confirm(this._t('loadConfirm'))) return;
+      this._review=false;this._call('button','press',{entity_id:load.entity_id},this._t('load'));
     }}));
-    actions.append(this._el('button',{className:'primary',text:this._busy?'Working…':`↥ Review & Save${pending?` (${pending})`:''}`,disabled:this._busy || !save || save.state==='unavailable' || !pending,onclick:()=>{this._review=true;this._render();}}));
-    actions.append(this._el('button',{text:'▣ Back up device',disabled:this._busy || !backup || backup.state==='unavailable',onclick:()=>{
-      if(!confirm('Replace the stored backup for this device with its current Shelly schedules? This reads from Shelly.')) return;
-      this._call('button','press',{entity_id:backup.entity_id},'Backup');
+    actions.append(this._el('button',{className:'primary',text:this._busy?this._t('working'):`${this._t('reviewButton')}${pending?` (${pending})`:''}`,disabled:this._busy || !save || save.state==='unavailable' || !pending,onclick:()=>{this._review=true;this._render();}}));
+    actions.append(this._el('button',{text:this._t('backupButton'),disabled:this._busy || !backup || backup.state==='unavailable',onclick:()=>{
+      if(!confirm(this._t('backupConfirm'))) return;
+      this._call('button','press',{entity_id:backup.entity_id},this._t('backup'));
     }}));
-    actions.append(this._el('button',{text:'↶ Stage restore',disabled:this._busy || !restore || restore.state==='unavailable',onclick:()=>{
-      if(!confirm('Stage the stored backup into the schedule editor? Any currently unsaved edits will be replaced. Nothing is written to Shelly until Review & Save.')) return;
-      this._review=false;this._call('button','press',{entity_id:restore.entity_id},'Stage restore');
+    actions.append(this._el('button',{text:this._t('restoreButton'),disabled:this._busy || !restore || restore.state==='unavailable',onclick:()=>{
+      if(!confirm(this._t('restoreConfirm'))) return;
+      this._review=false;this._call('button','press',{entity_id:restore.entity_id},this._t('restore'));
     }}));
     card.append(actions);
     if (this._review && pending) {
-      const pane = this._el('div',{className:'review',role:'region','aria-label':'Review schedule changes'});
-      pane.append(this._el('div',{className:'review-title',text:`Confirm ${pending} schedule change${pending===1?'':'s'}`}));
+      const pane = this._el('div',{className:'review',role:'region','aria-label':this._t('reviewLabel')});
+      pane.append(this._el('div',{className:'review-title',text:this._t(pending===1?'confirmOne':'confirmMany', {count:pending})}));
       for (const r of modified) {
         const original=r.time?.attributes?.saved_timespec || '';
         const fields=original.split(' ');
@@ -194,70 +240,70 @@ class ShellyScheduleCard extends HTMLElement {
         const previousEnabled=r.enabled?.attributes?.saved_enabled;
         const nowEnabled=r.enabled?.state==='on';
         const changes=[];
-        if(was!==now) changes.push(`time ${was} → ${now}`);
-        if(prevDays!==nowDays) changes.push(`weekdays ${prevDays} → ${nowDays}`);
-        if(typeof previousEnabled==='boolean' && previousEnabled!==nowEnabled) changes.push(`${previousEnabled?'enabled':'disabled'} → ${nowEnabled?'enabled':'disabled'}`);
-        pane.append(this._el('div',{className:'review-item',text:`Job ${r.id}: ${changes.join('; ') || 'Schedule modified'}`}));
+        if(was!==now) changes.push(this._t('timeChange', {before:was, after:now}));
+        if(prevDays!==nowDays) changes.push(this._t('daysChange', {before:prevDays, after:nowDays}));
+        if(typeof previousEnabled==='boolean' && previousEnabled!==nowEnabled) changes.push(`${this._t(previousEnabled?'enabled':'disabled')} → ${this._t(nowEnabled?'enabled':'disabled')}`);
+        pane.append(this._el('div',{className:'review-item',text:`${this._t('job', {id:r.id})}: ${changes.join('; ') || this._t('modified')}`}));
       }
-      pane.append(this._el('p',{className:'status',text:'Changes will be sent only to the selected Shelly. Existing RPC actions remain unchanged. A multi-job save is not atomic.'}));
+      pane.append(this._el('p',{className:'status',text:this._t('saveWarning')}));
       const choices=this._el('div',{className:'actions'});
-      choices.append(this._el('button',{text:'Cancel',onclick:()=>{this._review=false;this._render();}}));
-      choices.append(this._el('button',{className:'primary',text:'Confirm Save to Shelly',onclick:()=>{this._review=false;this._call('button','press',{entity_id:save.entity_id},'Save');}}));
+      choices.append(this._el('button',{text:this._t('cancel'),onclick:()=>{this._review=false;this._render();}}));
+      choices.append(this._el('button',{className:'primary',text:this._t('confirmSave'),onclick:()=>{this._review=false;this._call('button','press',{entity_id:save.entity_id},this._t('save'));}}));
       pane.append(choices);card.append(pane);
     }
     if (this._review && !pending) this._review=false;
     if (this._notice) {
       const alert = this._el('div',{className:`alert ${this._notice.kind}`,role:'status'},this._el('span',{text:this._notice.message}));
-      alert.append(this._el('button',{text:'×', 'aria-label':'Dismiss notification',style:'float:right;padding:0 2px;margin-left:6px',onclick:()=>{clearTimeout(this._noticeTimer);this._notice=null;this._render();}}));
+      alert.append(this._el('button',{text:'×', 'aria-label':this._t('dismiss'),style:'float:right;padding:0 2px;margin-left:6px',onclick:()=>{clearTimeout(this._noticeTimer);this._notice=null;this._render();}}));
       card.append(alert);
     }
-    if (!load || !save) card.append(this._el('div',{className:'alert error',text:'Load/Save button entities not found for this device. Check Settings → Devices & services → Shelly Schedule Manager → device → Entities; ensure both buttons are enabled.'}));
-    card.append(this._el('div',{className:'labels'},this._el('span',{text:'Schedule / Action'}),this._el('span',{text:'Time'}),this._el('span',{text:'Enabled'})));
+    if (!load || !save) card.append(this._el('div',{className:'alert error',text:this._t('missingButtons')}));
+    card.append(this._el('div',{className:'labels'},this._el('span',{text:this._t('scheduleAction')}),this._el('span',{text:this._t('time')}),this._el('span',{text:this._t('enabledHeading')})));
     for (const row of rows) {
-      const action=row.time?.attributes?.action || row.enabled?.attributes?.action || 'Unknown action';
+      const action=this._actionLabel(row.time?.attributes?.action || row.enabled?.attributes?.action || 'Unknown action');
       const dirty=!!(row.time?.attributes?.unsaved_changes || row.enabled?.attributes?.unsaved_changes || row.days?.attributes?.unsaved_changes);
-      const nameValue = row.name?.state && row.name.state !== 'unknown' && row.name.state !== 'unavailable' ? row.name.state : `Job ${row.id}`;
+      const nameValue = row.name?.state && row.name.state !== 'unknown' && row.name.state !== 'unavailable' ? row.name.state : this._t('job', {id:row.id});
       const label=this._el('div',{});
       if (row.name) {
         label.append(this._el('input',{type:'text',className:'job-name',value:nameValue,maxlength:'80',
-          disabled:this._busy || row.name.state==='unavailable','aria-label':`Name for job ${row.id}`,
-          title:`Rename schedule ${row.id} (stored locally in Home Assistant)`,
+          disabled:this._busy || row.name.state==='unavailable','aria-label':this._t('nameLabel', {id:row.id}),
+          title:this._t('renameTitle', {id:row.id}),
           onchange:(ev)=> {
             const newName = ev.target.value.trim();
-            if (newName !== nameValue) this._call('text','set_value',{entity_id:row.name.entity_id,value:newName},`Rename job ${row.id}`);
+            if (newName !== nameValue) this._call('text','set_value',{entity_id:row.name.entity_id,value:newName},this._t('rename', {id:row.id}));
           }
         }));
       } else {
-        label.append(this._el('div',{className:'job',text:`Job ${row.id}`}));
+        label.append(this._el('div',{className:'job',text:this._t('job', {id:row.id})}));
       }
-      label.append(this._el('div',{className:'action',text:`#${row.id} · ${action}${dirty?' · Unsaved schedule':''}`}));
+      label.append(this._el('div',{className:'action',text:`#${row.id} · ${action}${dirty?this._t('unsaved'):''}`}));
       const val=row.time?.state || '';
       const valid=/^\d{2}:\d{2}(:\d{2})?$/.test(val);
-      const time=this._el('input',{type:'time',step:'1',value:valid?(val.length===5?`${val}:00`:val):'',disabled:this._busy || !row.time || !valid,'aria-label':`Time for job ${row.id}`,onchange:(ev)=>{
+      const time=this._el('input',{type:'time',step:'1',value:valid?(val.length===5?`${val}:00`:val):'',disabled:this._busy || !row.time || !valid,'aria-label':this._t('timeLabel', {id:row.id}),onchange:(ev)=>{
         const v=ev.target.value;
-        if (v) this._call('time','set_value',{entity_id:row.time.entity_id,time:v.length===5?`${v}:00`:v},`Update job ${row.id} time locally`);
+        if (v) this._call('time','set_value',{entity_id:row.time.entity_id,time:v.length===5?`${v}:00`:v},this._t('timeUpdate', {id:row.id}));
       }});
-      const enabled=this._el('input',{type:'checkbox',className:'switch',checked:row.enabled?.state==='on',disabled:this._busy || !row.enabled || !['on','off'].includes(row.enabled.state),'aria-label':`Enable job ${row.id}`,onchange:(ev)=>this._call('switch',ev.target.checked?'turn_on':'turn_off',{entity_id:row.enabled.entity_id},`Update job ${row.id} enabled state locally`)});
+      const enabled=this._el('input',{type:'checkbox',className:'switch',checked:row.enabled?.state==='on',disabled:this._busy || !row.enabled || !['on','off'].includes(row.enabled.state),'aria-label':this._t('enableLabel', {id:row.id}),onchange:(ev)=>this._call('switch',ev.target.checked?'turn_on':'turn_off',{entity_id:row.enabled.entity_id},this._t('enabledUpdate', {id:row.id}))});
       const rowElement=this._el('div',{className:'row'},label,time,enabled);
       if(row.days) {
         const daysElement=this._el('div',{className:'weekday-row'});
-        daysElement.append(this._el('span',{className:'weekday-label',text:'Repeat'}));
+        daysElement.append(this._el('span',{className:'weekday-label',text:this._t('repeat')}));
         const isAdvanced=row.days.state==='advanced' || row.days.attributes?.editable===false;
         const parsed=(row.days.state || '').split(',').filter(x=>/^[0-6]$/.test(x)).map(Number);
         const daysSet=new Set(parsed);
-        const dayOrder=[[1,'Mon'],[2,'Tue'],[3,'Wed'],[4,'Thu'],[5,'Fri'],[6,'Sat'],[0,'Sun']];
+        const dayOrder=[1,2,3,4,5,6,0].map(day=>[day,this._strings.weekdays[day]]);
         if(isAdvanced) {
-          daysElement.append(this._el('span',{className:'status',text:'Advanced weekday rule: edit on Shelly (preserved on Save)'}));
+          daysElement.append(this._el('span',{className:'status',text:this._t('advanced')}));
         } else {
           for (const [day,label] of dayOrder) {
             daysElement.append(this._el('button',{className:`day${daysSet.has(day)?' active':''}`,text:label,
-              'aria-label':`${label} job ${row.id}`, 'aria-pressed':daysSet.has(day)?'true':'false',
-              title:`Toggle ${label}`,disabled:this._busy || (!daysSet.has(day) && daysSet.size===0),
+              'aria-label':this._t('dayLabel', {day:label, id:row.id}), 'aria-pressed':daysSet.has(day)?'true':'false',
+              title:this._t('toggleDay', {day:label}),disabled:this._busy || (!daysSet.has(day) && daysSet.size===0),
               onclick:()=> {
                 const next=new Set(daysSet);
                 if(next.has(day)) next.delete(day); else next.add(day);
-                if(!next.size) {this._toast('At least one weekday is required.','error');return;}
-                this._call('text','set_value',{entity_id:row.days.entity_id,value:[...next].sort((a,b)=>a-b).join(',')},`Update job ${row.id} weekdays locally`);
+                if(!next.size) {this._toast(this._t('requiredDay'),'error');return;}
+                this._call('text','set_value',{entity_id:row.days.entity_id,value:[...next].sort((a,b)=>a-b).join(',')},this._t('daysUpdate', {id:row.id}));
               }
             }));
           }
@@ -266,8 +312,8 @@ class ShellyScheduleCard extends HTMLElement {
       }
       card.append(rowElement);
     }
-    if (!rows.length) card.append(this._el('p',{text:'No schedules found on this device. Press Load from Shelly.'}));
-    card.append(this._el('div',{className:'foot',text: pending?`${pending} schedule(s) have unsaved changes. Press Save to write them to the Shelly.`:'Names and backups are stored in Home Assistant. Saves verify the device and detect external changes. No periodic polling.'}));
+    if (!rows.length) card.append(this._el('p',{text:this._t('noSchedules')}));
+    card.append(this._el('div',{className:'foot',text: pending?this._t('pending', {count:pending}):this._t('footer')}));
   }
 }
 if (!customElements.get('shelly-schedule-card')) customElements.define('shelly-schedule-card',ShellyScheduleCard);
