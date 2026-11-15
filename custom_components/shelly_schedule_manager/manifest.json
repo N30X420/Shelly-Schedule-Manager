@@ -1,0 +1,13 @@
+{
+  "domain": "shelly_schedule_manager",
+  "name": "Shelly Schedule Manager",
+  "codeowners": ["@N30X420"],
+  "config_flow": true,
+  "dependencies": ["persistent_notification"],
+  "documentation": "https://github.com/N30X420/Shelly-Schedule-Manager",
+  "integration_type": "device",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/N30X420/Shelly-Schedule-Manager/issues",
+  "requirements": [],
+  "version": "0.6.1"
+}

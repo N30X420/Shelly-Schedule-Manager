@@ -1,0 +1,21 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Add a Shelly schedule device",
+        "description": "Enter the Shelly Gen2/Gen3 address and local RPC credentials.",
+        "data": {
+          "name": "Device name",
+          "host": "IP address or hostname",
+          "username": "Username",
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not connect to the Shelly Schedule API or authentication failed.",
+      "invalid_host": "Enter a valid host or IP address."
+    },
+    "abort": {"already_configured": "This host is already configured."}
+  }
+}

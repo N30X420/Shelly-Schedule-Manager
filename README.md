@@ -31,16 +31,30 @@ A custom Home Assistant integration for viewing and editing schedules on Shelly 
 
 ## Install the integration
 
-1. Copy the `shelly_schedule_manager` folder from this repository into your Home Assistant configuration directory under `custom_components`, so the resulting path is:
+### HACS (custom repository)
+
+1. Open **HACS** in Home Assistant, open the three-dot menu, and choose **Custom repositories**.
+2. Add `https://github.com/N30X420/Shelly-Schedule-Manager` with type **Integration**.
+3. Find **Shelly Schedule Manager** in HACS and download it.
+4. Restart Home Assistant, then follow the configuration steps below.
+
+HACS manages the integration files and updates. The optional Lovelace card still needs the separate installation described below. This repository is installed as a custom repository; it is not listed in the default HACS catalog.
+
+### Manual installation
+
+1. Copy `custom_components/shelly_schedule_manager` from this repository into your Home Assistant configuration directory under `custom_components`, so the resulting path is:
 
    ```text
    <config>/custom_components/shelly_schedule_manager/
    ```
 
 2. Restart Home Assistant.
-3. Go to **Settings → Devices & services → Add integration** and search for **Shelly Schedule Manager**.
-4. Enter a device name, its IP address or hostname, and its local RPC username and password. Repeat the setup to add additional devices.
-5. The integration reads schedules when it starts. Press **Load from Shelly** on the device page whenever you want to reload them manually.
+
+### Configure a device
+
+1. Go to **Settings → Devices & services → Add integration** and search for **Shelly Schedule Manager**.
+2. Enter a device name, its IP address or hostname, and its local RPC username and password. Repeat the setup to add additional devices.
+3. The integration reads schedules when it starts. Press **Load from Shelly** on the device page whenever you want to reload them manually.
 
 For each device, the integration creates these buttons:
 
@@ -107,6 +121,14 @@ Setup checks connectivity with `Schedule.List`. The integration then reads sched
 ## Security
 
 The integration connects to the device's local RPC endpoint over HTTP and uses HTTP Digest authentication. Use it on a trusted local network and avoid exposing the device's RPC endpoint to the internet.
+
+## Repository maintenance
+
+The integration lives in `custom_components/shelly_schedule_manager`; `hacs.json` at the repository root supplies its HACS metadata. GitHub Actions runs HACS validation and Home Assistant's hassfest on pushes and pull requests, and can also be run manually.
+
+For a release, update the integration manifest's version and publish a matching GitHub release (for example, manifest version `0.6.1` and tag `v0.6.1`). No ZIP asset is required: HACS downloads the integration directory from the selected ref. The selected branch or release must contain the HACS layout; older releases with the previous layout are not compatible.
+
+HACS validation skips only the external Home Assistant Brands check for custom-repository use. Inclusion in the default HACS catalog is a separate submission and requires a Home Assistant Brands entry and all validation checks to pass. Before submitting, remove `ignore: brands` from the validation workflow. See the [HACS publishing requirements](https://www.hacs.dev/docs/publish/include/).
 
 ## API reference
 
