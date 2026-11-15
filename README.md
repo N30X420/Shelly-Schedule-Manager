@@ -71,13 +71,17 @@ These entities can be used directly in Home Assistant even if you do not install
 
 ## Optional Lovelace card
 
-The repository's `shelly-schedule-card.js` is a separate dashboard resource; installing the integration alone does not install the card.
+The repository's `shelly-schedule-card.js` is a separate dashboard resource. HACS installs only `custom_components/shelly_schedule_manager/` for this integration; it does not copy the card into `www` or register a dashboard resource. Download the card from this repository separately, including when installing the integration through HACS.
 
 1. Copy `shelly-schedule-card.js` into your Home Assistant `www` directory, creating it if needed:
 
    ```text
    <config>/www/shelly-schedule-card.js
    ```
+
+   `<config>` is the directory containing `configuration.yaml` (commonly `/config`), so the usual destination is `/config/www/shelly-schedule-card.js`. Home Assistant serves files in `www` under `/local/`: the file above is available at `/local/shelly-schedule-card.js`. See [Home Assistant's file hosting documentation](https://www.home-assistant.io/integrations/http/#hosting-files).
+
+   If you created `www` for the first time, restart Home Assistant. Open `/local/shelly-schedule-card.js` on your Home Assistant address and confirm that it returns JavaScript before adding the resource. A 404 means the file is missing from the served location; check its exact name and path and restart if you just created `www`.
 
 2. In **Settings → Dashboards → Resources**, add `/local/shelly-schedule-card.js` as a JavaScript module. If Resources is not available in the UI, enable YAML mode for your dashboard and add:
 
@@ -95,6 +99,8 @@ The repository's `shelly-schedule-card.js` is a separate dashboard resource; ins
    ```
 
 The card lists configured Shelly Schedule Manager devices and lets you select which device to manage. Edit each schedule's local name, time, enabled state, and **Repeat** weekday buttons. Names are saved in Home Assistant immediately and are independent of staged schedule changes.
+
+When updating the card, replace the file in `www` separately and refresh the browser cache. You can append a version query to the resource URL, such as `/local/shelly-schedule-card.js?v=0.6.0`, and change it when replacing the file to request a fresh copy.
 
 Press **Review & Save** to see pending changes to times, weekdays, and enabled states, then **Confirm Save to Shelly** to apply them to the selected device. Cancel closes the review and keeps your staged edits. Loading while schedule changes are pending asks for confirmation. Card messages show operation success or failure.
 
@@ -133,3 +139,7 @@ HACS validation skips only the external Home Assistant Brands check for custom-r
 ## API reference
 
 The integration uses Shelly's [Schedule component RPC API](https://shelly-api-docs.shelly.cloud/gen2/ComponentsAndServices/Schedule/).
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
