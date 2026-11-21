@@ -1,5 +1,7 @@
 # Shelly Schedule Manager
 
+![Shelly Schedule Manager logo](custom_components/shelly_schedule_manager/brand/logo.png)
+
 A custom Home Assistant integration for viewing and editing schedules on Shelly devices. Changes are staged in Home Assistant and written to the device only when you choose **Save to Shelly**.
 
 ## Features
